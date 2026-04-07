@@ -1003,6 +1003,8 @@ def scenario_deploy(
             )
             created = result.get("scenario", result)
             created_id = int(created.get("id"))
+            if not inactive:
+                client.start_scenario(created_id)
             if inactive:
                 client.stop_scenario(created_id)
 

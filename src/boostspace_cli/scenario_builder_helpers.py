@@ -62,14 +62,26 @@ def resolve_team_id(client: APIClient, config: Config, requested_team_id: int | 
 
 
 def module_names_from_blueprint(blueprint: dict[str, object]) -> set[str]:
-    flow = blueprint.get("flow") or blueprint.get("modules") or []
     names: set[str] = set()
-    if isinstance(flow, list):
+
+    def walk(flow: object) -> None:
+        if not isinstance(flow, list):
+            return
         for module in flow:
-            if isinstance(module, dict):
-                mod = module.get("module")
-                if isinstance(mod, str):
-                    names.add(mod)
+            if not isinstance(module, dict):
+                continue
+            mod = module.get("module")
+            if isinstance(mod, str):
+                names.add(mod)
+
+            routes = module.get("routes")
+            if isinstance(routes, list):
+                for route in routes:
+                    if isinstance(route, dict):
+                        walk(route.get("flow"))
+
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    walk(flow)
     return names
 
 

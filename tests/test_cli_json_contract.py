@@ -545,6 +545,10 @@ def test_scenario_deploy_replaces_credentials_and_verifies_run(monkeypatch, tmp_
         def create_scenario(self, **_kwargs):
             return {"scenario": {"id": 555}}
 
+        def start_scenario(self, scenario_id):
+            _ = scenario_id
+            return {"ok": True}
+
         def run_scenario(self, scenario_id, data=None, responsive=True, callback_url=None):
             _ = scenario_id, data, responsive, callback_url
             return {"executionId": "exec-1", "status": 1}

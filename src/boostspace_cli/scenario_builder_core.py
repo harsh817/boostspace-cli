@@ -322,7 +322,7 @@ def guess_modules(
                     "model": "gpt-3.5-turbo-instruct",
                     "prompt": "Write an engaging social media post for today. Include emojis and 5-8 relevant hashtags at the end. Keep it under 200 words.",
                     "max_tokens": 300,
-                    "temperature": "0.8",
+                    "temperature": 0.8,
                 },
             }
         )
