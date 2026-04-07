@@ -1,0 +1,130 @@
+# Boost.space CLI
+
+CLI to manage Boost.space Integrator workflows from the terminal.
+
+## Install
+
+```bash
+pip install -e .
+```
+
+## Quick Start (recommended)
+
+```bash
+# One-command setup: login + org/team detection + validation
+boost init
+
+# Verify health and auto-fix missing defaults
+boost auth doctor --fix
+
+# List scenarios
+boost scenarios list --limit 20
+```
+
+## Authentication
+
+```bash
+# Session auth via browser automation (Playwright)
+boost auth playwright
+
+# Check auth status
+boost auth status
+
+# Clear auth data
+boost auth clear
+```
+
+## Common Commands
+
+```bash
+# Who am I
+boost whoami
+
+# Scenario details
+boost scenarios get 123456 --blueprint
+
+# Trigger execution
+boost executions run 123456 --data '{"email":"test@example.com"}'
+
+# Execution history
+boost executions history 123456 --limit 20
+
+# Execution status (supports SCENARIO_ID:EXECUTION_ID shorthand)
+boost executions status 123456:abc123
+
+# Status by history imtId (explicit log lookup)
+boost executions status --name "HM | Daily Report Leads" --from-history 145029
+```
+
+## Internet-First Scenario Builder
+
+```bash
+# 0) Brainstorm interactively into a spec
+boost scenario brainstorm --goal "Capture lead webhook and push to Google Sheets"
+
+# 1) Research latest patterns from the web
+boost scenario research --goal "Capture lead webhook and push to Google Sheets"
+
+# 2) Generate a draft blueprint from spec (or use --goal directly)
+boost scenario draft --spec spec-capture-lead-webhook-and-push-to-google-sheets.json
+
+# 3) Validate structure + account readiness
+boost scenario validate --file draft-capture-lead-webhook-and-push-to-google-sheets.json --check-auth
+
+# 4) Auto-repair common blueprint issues
+boost scenario repair --file draft-capture-lead-webhook-and-push-to-google-sheets.json
+
+# 5) Preflight deploy (safe)
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --dry-run
+
+# 6) Deploy for real
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json
+
+# 7) Check tenant-proven module names (deploy guard helper)
+boost scenario modules --limit 60
+```
+
+JSON output examples:
+
+```bash
+boost whoami --json
+boost auth status --json
+boost scenarios list --limit 20 --json
+boost scenarios health --json
+boost scenarios top-issues --limit 10 --json
+boost executions run --name "HM | Daily Report Leads" --json
+boost executions status --name "HM | Daily Report Leads" --from-history 145029 --json
+boost executions history --name "HM | Daily Report Leads" --json
+boost executions incomplete --name "HM | Daily Report Leads" --json
+boost webhooks list --json
+```
+
+JSON schema (all `--json` commands):
+
+```json
+{
+  "ok": true,
+  "data": {},
+  "error": null,
+  "meta": {
+    "command": "scenarios list"
+  }
+}
+```
+
+`jq`-friendly automation examples:
+
+```bash
+# Extract scenario IDs and names
+boost scenarios list --limit 20 --json | jq -r '.data[] | "\(.id)\t\(.name)"'
+
+# Fail CI if doctor reports not ok
+boost auth doctor --json | jq -e '.ok == true' > /dev/null
+
+# Pull execution status text from structured JSON
+boost executions status --name "HM | Daily Report Leads" --from-history 145029 --json | jq -r '.data.statusText'
+```
+
+Sample workflow file:
+
+`examples/sample-workflow-lead-capture.json`

@@ -1,0 +1,68 @@
+{
+  "goal": "Capture inbound lead webhook and map core lead fields",
+  "createdAt": 1765000000,
+  "sources": [
+    {
+      "title": "Make webhook trigger patterns",
+      "url": "https://www.make.com/en/help/tools/webhooks",
+      "summary": "Use custom webhook trigger, map incoming fields, and route to downstream modules."
+    },
+    {
+      "title": "Variable mapping in scenarios",
+      "url": "https://help.make.com/tools",
+      "summary": "Use Set Variables to normalize incoming payload fields for downstream steps."
+    }
+  ],
+  "blueprint": {
+    "name": "Lead Capture - Webhook Scaffold",
+    "flow": [
+      {
+        "id": 1,
+        "module": "gateway:CustomWebHook",
+        "version": 1,
+        "parameters": {
+          "maxResults": 1
+        },
+        "mapper": {}
+      },
+      {
+        "id": 2,
+        "module": "util:SetVariables",
+        "version": 1,
+        "mapper": {
+          "scope": "roundtrip",
+          "variables": [
+            {
+              "name": "lead_name",
+              "value": "{{1.name}}"
+            },
+            {
+              "name": "lead_email",
+              "value": "{{1.email}}"
+            },
+            {
+              "name": "lead_phone",
+              "value": "{{1.phone}}"
+            },
+            {
+              "name": "lead_source",
+              "value": "{{1.source}}"
+            }
+          ]
+        }
+      }
+    ],
+    "metadata": {
+      "version": 1,
+      "scenario": {
+        "roundtrips": 1,
+        "maxErrors": 3
+      }
+    }
+  },
+  "notes": [
+    "This sample is deployable as-is and acts as a lead intake scaffold.",
+    "Add downstream modules (Google Sheets, CRM, Slack) after deployment.",
+    "Validate first: boost scenario validate --file examples/sample-workflow-lead-capture.json --check-auth"
+  ]
+}
