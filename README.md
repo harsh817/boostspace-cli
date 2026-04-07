@@ -59,6 +59,9 @@ boost executions status --name "HM | Daily Report Leads" --from-history 145029
 ## Internet-First Scenario Builder
 
 ```bash
+# One-command guided brainstorm + draft
+boost scenario coach --goal "Capture lead webhook and push to Google Sheets" --json
+
 # 0) Brainstorm interactively into a spec
 boost scenario brainstorm --goal "Capture lead webhook and push to Google Sheets"
 
@@ -67,6 +70,9 @@ boost scenario research --goal "Capture lead webhook and push to Google Sheets"
 
 # 2) Generate a draft blueprint from spec (or use --goal directly)
 boost scenario draft --spec spec-capture-lead-webhook-and-push-to-google-sheets.json
+
+# (Optional) check native connection readiness from a draft
+boost scenario setup --file draft-capture-lead-webhook-and-push-to-google-sheets.json
 
 # 3) Validate structure + account readiness
 boost scenario validate --file draft-capture-lead-webhook-and-push-to-google-sheets.json --check-auth
@@ -80,8 +86,14 @@ boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheet
 # 6) Deploy for real
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json
 
+# If draft intentionally contains HTTP fallback modules, opt in explicitly
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --allow-http-fallback
+
 # 7) Check tenant-proven module names (deploy guard helper)
 boost scenario modules --limit 60
+
+# 8) Sync/list documented apps + platform features from Boost docs catalog
+boost scenario catalog --refresh
 ```
 
 JSON output examples:
@@ -97,6 +109,8 @@ boost executions status --name "HM | Daily Report Leads" --from-history 145029 -
 boost executions history --name "HM | Daily Report Leads" --json
 boost executions incomplete --name "HM | Daily Report Leads" --json
 boost webhooks list --json
+boost scenario setup --file draft-capture-lead-webhook-and-push-to-google-sheets.json --json
+boost scenario catalog --json
 ```
 
 JSON schema (all `--json` commands):

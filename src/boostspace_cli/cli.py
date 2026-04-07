@@ -197,6 +197,7 @@ from . import webhooks  # noqa: E402
 from . import blueprints  # noqa: E402
 from . import auth  # noqa: E402
 from . import scenario_builder  # noqa: E402
+from . import connections  # noqa: E402
 
 main.add_command(scenarios.scenarios)
 main.add_command(executions.executions)
@@ -204,6 +205,7 @@ main.add_command(webhooks.webhooks)
 main.add_command(blueprints.blueprints)
 main.add_command(auth.auth)
 main.add_command(scenario_builder.scenario_builder)
+main.add_command(connections.connections)
 
 
 if __name__ == "__main__":

@@ -12,89 +12,36 @@ from rich.table import Table
 from .client import APIClient, APIError
 from .config import Config
 from .console import console
+from .docs_catalog import load_documented_app_slugs, load_documented_features, match_goal_apps
 from .jsonio import emit_json
 from .scenario_builder_core import (
+    align_modules_to_known,
     MODULE_COMPATIBILITY_RULES,
     build_draft,
     extract_blueprint,
     fetch_summary,
+    inject_connection_ids,
     repair_blueprint_data,
+    required_connection_apps,
     research_goal,
+    seed_known_native_modules,
     slugify,
     validate_blueprint_data,
+)
+from .scenario_builder_helpers import (
+    module_names_from_blueprint,
+    normalize_schedule_type,
+    parse_connection_pairs,
+    parse_csv,
+    resolve_team_id,
+    team_connection_map,
+    tenant_known_modules,
 )
 
 
 @click.group("scenario")
 def scenario_builder() -> None:
     """Research, draft, validate, and repair scenarios."""
-
-
-def _parse_csv(value: str) -> list[str]:
-    return [item.strip() for item in value.split(",") if item.strip()]
-
-
-def _resolve_team_id(client: APIClient, config: Config, requested_team_id: int | None) -> int:
-    if requested_team_id:
-        return requested_team_id
-    if config.team_id:
-        return config.team_id
-
-    org_id = config.organization_id
-    if not org_id:
-        orgs = client.get("/organizations").get("organizations", [])
-        if not orgs:
-            raise click.ClickException("No organizations found for this account.")
-        org_id = int(orgs[0]["id"])
-        config.organization_id = org_id
-
-    teams = client.list_teams(organization_id=org_id).get("teams", [])
-    if not teams:
-        raise click.ClickException(f"No teams found in organization {org_id}.")
-
-    team_id = int(teams[0]["id"])
-    config.team_id = team_id
-    return team_id
-
-
-def _module_names_from_blueprint(blueprint: dict[str, object]) -> set[str]:
-    flow = blueprint.get("flow") or blueprint.get("modules") or []
-    names: set[str] = set()
-    if isinstance(flow, list):
-        for module in flow:
-            if isinstance(module, dict):
-                mod = module.get("module")
-                if isinstance(mod, str):
-                    names.add(mod)
-    return names
-
-
-def _tenant_known_modules(
-    client: APIClient,
-    team_id: int | None,
-    organization_id: int | None,
-    scan_limit: int,
-) -> set[str]:
-    scenario_page = client.list_scenarios(team_id=team_id, organization_id=organization_id, limit=scan_limit)
-    scenarios = scenario_page.get("scenarios", [])
-    known: set[str] = set()
-
-    for scenario in scenarios:
-        sid = scenario.get("id")
-        if not sid:
-            continue
-        try:
-            bp_resp = client.get_blueprint(int(sid))
-        except APIError:
-            continue
-
-        blueprint = bp_resp.get("response", {}).get("blueprint") if isinstance(bp_resp, dict) else None
-        if not isinstance(blueprint, dict):
-            continue
-
-        known |= _module_names_from_blueprint(blueprint)
-
-    return known
 
 
 @scenario_builder.command("modules")
@@ -106,7 +53,7 @@ def scenario_modules(ctx: click.Context, limit: int, json_output: bool) -> None:
     config: Config = ctx.obj["config"]
     with APIClient(config) as client:
         modules = sorted(
-            _tenant_known_modules(client, config.team_id, config.organization_id, scan_limit=limit),
+            tenant_known_modules(client, config.team_id, config.organization_id, scan_limit=limit),
             key=str.casefold,
         )
 
@@ -120,6 +67,267 @@ def scenario_modules(ctx: click.Context, limit: int, json_output: bool) -> None:
 
     for module in modules:
         console.print(module)
+
+
+@scenario_builder.command("catalog")
+@click.option("--refresh", is_flag=True, help="Refresh docs app catalog from Boost docs")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+def scenario_catalog(refresh: bool, json_output: bool) -> None:
+    """Show native app catalog discovered from Boost docs."""
+    apps = sorted(load_documented_app_slugs(refresh=refresh), key=str.casefold)
+    features = sorted(load_documented_features(refresh=False), key=str.casefold)
+
+    if json_output:
+        emit_json(
+            data={
+                "appCount": len(apps),
+                "featureCount": len(features),
+                "source": "docs.boost.space",
+                "apps": apps,
+                "features": features,
+            },
+            meta={"command": "scenario catalog", "refresh": bool(refresh)},
+        )
+        return
+
+    if not apps:
+        console.print("[yellow]No app catalog entries found from docs cache/source.[/yellow]")
+        return
+
+    console.print(f"[green]Documented native apps: {len(apps)}[/green]")
+    for app in apps:
+        console.print(app)
+    if features:
+        console.print(f"[green]Documented platform features: {len(features)}[/green]")
+
+
+def _infer_trigger(goal: str) -> str:
+    g = goal.casefold()
+    schedule_markers = ("every ", "daily", "weekly", "monthly", "schedule", "cron", "hourly")
+    return "schedule" if any(marker in g for marker in schedule_markers) else "webhook"
+
+
+@scenario_builder.command("coach")
+@click.option("--goal", help="Workflow outcome in plain language")
+@click.option("--team-id", type=int, help="Team ID override")
+@click.option("--output", type=click.Path(path_type=Path), help="Where to write draft JSON")
+@click.option("--non-interactive", is_flag=True, help="Skip prompts and use defaults")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def scenario_coach(
+    ctx: click.Context,
+    goal: str | None,
+    team_id: int | None,
+    output: Path | None,
+    non_interactive: bool,
+    json_output: bool,
+) -> None:
+    """Low-friction guided brainstorm + draft generation."""
+    config: Config = ctx.obj["config"]
+
+    if not goal:
+        if non_interactive:
+            raise click.ClickException("Provide --goal when using --non-interactive")
+        goal = click.prompt("What should this workflow do?")
+
+    goal_text = str(goal)
+
+    inferred_trigger = _infer_trigger(goal_text)
+    trigger = inferred_trigger
+    native_only = True
+    if not non_interactive:
+        trigger = click.prompt(
+            "Suggested trigger",
+            default=inferred_trigger,
+            type=click.Choice(["webhook", "schedule"], case_sensitive=False),
+        )
+        native_only = click.confirm("Use native modules only?", default=True)
+
+    docs_apps = load_documented_app_slugs(refresh=False)
+    docs_features = load_documented_features(refresh=False)
+    matched_apps = sorted(match_goal_apps(goal_text, docs_apps))
+    matched_features = sorted(match_goal_apps(goal_text, docs_features))
+
+    try:
+        with APIClient(config) as client:
+            resolved_team_id = resolve_team_id(client, config, team_id)
+            known_modules = tenant_known_modules(client, config.team_id, config.organization_id, scan_limit=80)
+            connections = team_connection_map(client, resolved_team_id)
+    except (APIError, click.ClickException) as exc:
+        if json_output:
+            emit_json(ok=False, error=str(exc), meta={"command": "scenario coach"})
+            raise SystemExit(1)
+        raise
+
+    app_status: list[dict[str, object]] = []
+    for app in matched_apps:
+        has_connection = app in connections
+        has_native_modules = any(module.startswith(f"{app}:") for module in known_modules)
+        app_status.append(
+            {
+                "app": app,
+                "connectionId": connections.get(app),
+                "hasConnection": has_connection,
+                "hasTenantModule": has_native_modules,
+                "ready": bool(has_connection and has_native_modules),
+            }
+        )
+
+    sources = research_goal(goal_text, max_results=4)
+    draft = build_draft(goal_text, sources, trigger=trigger, connections=connections or None)
+    draft_blueprint = extract_blueprint(draft)
+    draft_blueprint, seeded_modules = seed_known_native_modules(draft_blueprint, set(matched_apps), known_modules)
+    draft_blueprint, replacements = align_modules_to_known(draft_blueprint, known_modules)
+
+    required_apps = sorted(required_connection_apps(draft_blueprint))
+    missing_apps = [app for app in required_apps if app not in connections]
+
+    if native_only:
+        http_modules = sorted(module for module in module_names_from_blueprint(draft_blueprint) if module.startswith("http:"))
+        if http_modules:
+            message = "Native-only mode blocked HTTP fallback modules: " + ", ".join(http_modules)
+            if json_output:
+                emit_json(
+                    ok=False,
+                    error=message,
+                    data={"httpModules": http_modules, "goal": goal_text},
+                    meta={"command": "scenario coach"},
+                )
+                raise SystemExit(1)
+            raise click.ClickException(message)
+
+    if output is None:
+        output = Path.cwd() / f"draft-{slugify(goal_text)}.json"
+
+    write_draft = True
+    if not non_interactive:
+        write_draft = click.confirm("Create draft file now?", default=True)
+
+    if write_draft:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(draft, indent=2), encoding="utf-8")
+
+    recommendations: list[str] = []
+    if missing_apps:
+        recommendations.append("Create missing native app connections: " + ", ".join(missing_apps))
+    if matched_apps and not any(item["ready"] for item in app_status):
+        recommendations.append("Run `boost scenario modules` and use tenant-proven modules for matched apps")
+    recommendations.append("Run `boost scenario validate --file <draft>` before deploy")
+    recommendations.append("Run `boost scenario deploy --file <draft> --dry-run` before real deploy")
+
+    if json_output:
+        emit_json(
+            ok=not missing_apps,
+            error=("Missing connections for: " + ", ".join(missing_apps)) if missing_apps else None,
+            data={
+                "goal": goal_text,
+                "trigger": trigger,
+                "nativeOnly": native_only,
+                "teamId": resolved_team_id,
+                "goalAppsFromDocs": matched_apps,
+                "goalFeaturesFromDocs": matched_features,
+                "appStatus": app_status,
+                "seededNativeModules": seeded_modules,
+                "alignedModules": replacements,
+                "requiredConnectionApps": required_apps,
+                "missingConnectionApps": missing_apps,
+                "draftOutput": str(output) if write_draft else None,
+                "recommendations": recommendations,
+            },
+            meta={"command": "scenario coach"},
+        )
+        if missing_apps:
+            raise SystemExit(1)
+        return
+
+    table = Table(title="Workflow Coach")
+    table.add_column("Field", style="cyan", no_wrap=True)
+    table.add_column("Value", style="white")
+    table.add_row("Goal", goal_text)
+    table.add_row("Trigger", trigger)
+    table.add_row("Native only", "yes" if native_only else "no")
+    table.add_row("Matched apps", ", ".join(matched_apps) or "-")
+    table.add_row("Missing connections", ", ".join(missing_apps) or "none")
+    table.add_row("Draft", str(output) if write_draft else "not written")
+    console.print(table)
+
+    if recommendations:
+        console.print("[bold]Recommended next steps:[/bold]")
+        for recommendation in recommendations:
+            console.print(f"- {recommendation}")
+
+    if missing_apps:
+        raise SystemExit(1)
+
+
+@scenario_builder.command("setup")
+@click.option("--app", "apps", multiple=True, help="App key to prepare (repeatable), e.g. --app google-sheets")
+@click.option("--file", "file_path", type=click.Path(exists=True, path_type=Path), help="Draft/blueprint file to infer required app connections")
+@click.option("--team-id", type=int, help="Team ID override")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def scenario_setup(
+    ctx: click.Context,
+    apps: tuple[str, ...],
+    file_path: Path | None,
+    team_id: int | None,
+    json_output: bool,
+) -> None:
+    """Check native app connection readiness for draft/deploy."""
+    config: Config = ctx.obj["config"]
+    requested_apps = {app.strip().casefold() for app in apps if app.strip()}
+
+    inferred_apps: set[str] = set()
+    if file_path:
+        payload = json.loads(file_path.read_text(encoding="utf-8"))
+        inferred_apps = required_connection_apps(extract_blueprint(payload))
+
+    target_apps = sorted(requested_apps | inferred_apps)
+
+    with APIClient(config) as client:
+        try:
+            resolved_team_id = resolve_team_id(client, config, team_id)
+            connections = team_connection_map(client, resolved_team_id)
+        except (APIError, click.ClickException) as exc:
+            if json_output:
+                emit_json(ok=False, error=str(exc), meta={"command": "scenario setup"})
+                raise SystemExit(1)
+            raise
+
+    if not target_apps:
+        target_apps = sorted(connections.keys())
+
+    found = [{"app": app, "connectionId": connections[app]} for app in target_apps if app in connections]
+    missing = [app for app in target_apps if app not in connections]
+
+    if json_output:
+        emit_json(
+            ok=not missing,
+            error=("Missing connections for: " + ", ".join(missing)) if missing else None,
+            data={
+                "teamId": resolved_team_id,
+                "requestedApps": target_apps,
+                "found": found,
+                "missing": missing,
+            },
+            meta={"command": "scenario setup"},
+        )
+        if missing:
+            raise SystemExit(1)
+        return
+
+    if found:
+        table = Table(title="Native App Connection Setup")
+        table.add_column("App", style="white")
+        table.add_column("Connection ID", style="cyan")
+        for item in found:
+            table.add_row(item["app"], str(item["connectionId"]))
+        console.print(table)
+
+    if missing:
+        console.print("[yellow]Missing app connections:[/yellow] " + ", ".join(missing))
+        console.print("[dim]Create these connections in Boost.space, then re-run setup/deploy.[/dim]")
+        raise SystemExit(1)
 
 
 @scenario_builder.command("research")
@@ -168,20 +376,75 @@ def scenario_research(goal: str, max_results: int, output: Path | None, json_out
 @scenario_builder.command("draft")
 @click.option("--goal", help="Workflow goal")
 @click.option("--spec", "spec_file", type=click.Path(exists=True, path_type=Path), help="Optional brainstorm spec JSON")
+@click.option("--trigger", type=click.Choice(["webhook", "schedule"], case_sensitive=False), default="webhook", show_default=True, help="Trigger type")
+@click.option("--connection", "connection_pairs", multiple=True, metavar="APP:ID",
+              help="Real connection ID for a native app module, e.g. --connection openai-gpt-3:42. Repeat for multiple.")
 @click.option("--max-results", type=int, default=6, show_default=True)
 @click.option("--output", type=click.Path(path_type=Path), help="Output path for draft JSON")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
-def scenario_draft(goal: str | None, spec_file: Path | None, max_results: int, output: Path | None, json_output: bool) -> None:
+@click.pass_context
+def scenario_draft(
+    ctx: click.Context,
+    goal: str | None,
+    spec_file: Path | None,
+    trigger: str,
+    connection_pairs: tuple[str, ...],
+    max_results: int,
+    output: Path | None,
+    json_output: bool,
+) -> None:
     """Draft a blueprint from internet research and heuristics."""
     if spec_file:
         spec_payload = json.loads(spec_file.read_text(encoding="utf-8"))
         goal = spec_payload.get("draftGoal") or spec_payload.get("goal")
+        trigger = spec_payload.get("trigger", trigger)
+
+    trigger = str(trigger).casefold()
 
     if not goal:
         raise click.ClickException("Provide --goal or --spec")
 
+    manual_connections = parse_connection_pairs(connection_pairs)
+    auto_connections: dict[str, int] = {}
+    config: Config = ctx.obj["config"]
+    with APIClient(config) as client:
+        try:
+            resolved_team_id = resolve_team_id(client, config, config.team_id)
+            auto_connections = team_connection_map(client, resolved_team_id)
+        except Exception:
+            auto_connections = {}
+
+    connections = {**auto_connections, **manual_connections}
+
     sources = research_goal(goal, max_results=max_results)
-    draft = build_draft(goal, sources)
+    draft = build_draft(goal, sources, trigger=trigger, connections=connections or None)
+    known_modules: set[str] = set()
+    seeded_modules: list[str] = []
+    docs_goal_apps: list[str] = []
+    docs_goal_features: list[str] = []
+    uncovered_docs_apps: list[str] = []
+
+    with APIClient(config) as client:
+        try:
+            known_modules = tenant_known_modules(client, config.team_id, config.organization_id, scan_limit=60)
+            draft_blueprint = extract_blueprint(draft)
+            docs_apps = load_documented_app_slugs(refresh=False)
+            docs_features = load_documented_features(refresh=False)
+            docs_goal_apps = sorted(match_goal_apps(goal, docs_apps))
+            docs_goal_features = sorted(match_goal_apps(goal, docs_features))
+            draft_blueprint, seeded_modules = seed_known_native_modules(
+                draft_blueprint,
+                set(docs_goal_apps),
+                known_modules,
+            )
+            draft_blueprint, _ = align_modules_to_known(draft_blueprint, known_modules)
+
+            if docs_goal_apps:
+                flow_apps = {module.split(":", 1)[0].casefold() for module in module_names_from_blueprint(draft_blueprint)}
+                uncovered_docs_apps = sorted(app for app in docs_goal_apps if app not in flow_apps)
+        except Exception:
+            pass
+
     if output is None:
         output = Path.cwd() / f"draft-{slugify(goal)}.json"
 
@@ -193,12 +456,24 @@ def scenario_draft(goal: str | None, spec_file: Path | None, max_results: int, o
                 "goal": goal,
                 "output": str(output),
                 "moduleCount": len(extract_blueprint(draft).get("flow", [])),
+                "resolvedConnections": connections,
+                "goalAppsFromDocs": docs_goal_apps,
+                "goalFeaturesFromDocs": docs_goal_features,
+                "seededNativeModules": seeded_modules,
+                "uncoveredGoalApps": uncovered_docs_apps,
             },
             meta={"command": "scenario draft"},
         )
         return
 
     console.print(f"[green]Draft created:[/green] {output}")
+    if seeded_modules:
+        console.print("[dim]Seeded native modules from tenant-known apps:[/dim]")
+        for module_name in seeded_modules:
+            console.print(f"[dim]- {module_name}[/dim]")
+    if uncovered_docs_apps:
+        console.print("[yellow]Goal includes documented apps without mapped native modules:[/yellow] " + ", ".join(uncovered_docs_apps))
+        console.print("[dim]Run `boost scenario setup --app <app>` and ensure tenant-proven modules exist.[/dim]")
     console.print(f"[dim]Next: boost scenario validate --file {output}[/dim]")
 
 
@@ -341,7 +616,7 @@ def scenario_brainstorm(
         if not optional_fields:
             optional_fields = click.prompt("Optional fields (comma-separated)", default="phone,source")
         if not connections:
-            connections = click.prompt("Known connections (comma-separated)", default="")
+            connections = ""
 
     trigger = trigger or "webhook"
     destinations = destinations or "sheet"
@@ -349,10 +624,10 @@ def scenario_brainstorm(
     optional_fields = optional_fields or "phone,source"
     connections = connections or ""
 
-    destination_list = _parse_csv(destinations)
-    required_list = _parse_csv(required_fields)
-    optional_list = _parse_csv(optional_fields)
-    connection_list = _parse_csv(connections)
+    destination_list = parse_csv(destinations)
+    required_list = parse_csv(required_fields)
+    optional_list = parse_csv(optional_fields)
+    connection_list = parse_csv(connections)
 
     draft_goal_parts = [goal, f"trigger {trigger}"]
     if destination_list:
@@ -405,7 +680,7 @@ def scenario_brainstorm(
 @click.option("--team-id", type=int, help="Target team ID")
 @click.option(
     "--schedule-type",
-    type=click.Choice(["on-demand", "indefinitely", "once", "immediately"]),
+    type=click.Choice(["on-demand", "indefinitely", "once", "immediately"], case_sensitive=False),
     default="on-demand",
     show_default=True,
 )
@@ -414,6 +689,7 @@ def scenario_brainstorm(
 @click.option("--dry-run", is_flag=True, help="Validate and resolve target context without creating")
 @click.option("--repair", is_flag=True, help="Auto-repair draft in-memory before deploy")
 @click.option("--guard-compat/--no-guard-compat", default=True, show_default=True, help="Block deploy when modules are not proven in tenant")
+@click.option("--allow-http-fallback", is_flag=True, help="Allow HTTP modules when no native module exists")
 @click.option("--scan-limit", type=int, default=60, show_default=True, help="How many scenarios to scan for known modules")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
@@ -428,6 +704,7 @@ def scenario_deploy(
     dry_run: bool,
     repair: bool,
     guard_compat: bool,
+    allow_http_fallback: bool,
     scan_limit: int,
     json_output: bool,
 ) -> None:
@@ -436,6 +713,14 @@ def scenario_deploy(
     payload = json.loads(file_path.read_text(encoding="utf-8"))
     blueprint = extract_blueprint(payload)
     goal = str(payload.get("goal", "Workflow"))
+    schedule_type = normalize_schedule_type(schedule_type)
+
+    if schedule_type == "indefinitely" and interval <= 0:
+        msg = "--interval must be a positive integer when --schedule-type indefinitely"
+        if json_output:
+            emit_json(ok=False, error=msg, meta={"command": "scenario deploy"})
+            raise SystemExit(1)
+        raise click.ClickException(msg)
 
     if repair:
         blueprint, fixes = repair_blueprint_data(blueprint, goal)
@@ -466,7 +751,7 @@ def scenario_deploy(
         try:
             me = client.get_user()
             user = me.get("authUser") or me.get("user") or me
-            resolved_team_id = _resolve_team_id(client, config, team_id)
+            resolved_team_id = resolve_team_id(client, config, team_id)
         except APIError as exc:
             if json_output:
                 emit_json(ok=False, error=f"Preflight API error: {exc}", meta={"command": "scenario deploy"})
@@ -481,18 +766,61 @@ def scenario_deploy(
             raise SystemExit(1)
 
         scenario_name = override_name or blueprint.get("name") or f"Draft - {goal[:50]}"
-        scheduling = {"type": schedule_type}
+        scheduling: dict[str, object] = {"type": schedule_type}
         if schedule_type == "indefinitely":
-            scheduling["interval"] = str(interval)
+            scheduling["interval"] = int(interval)
+
+        required_apps = sorted(required_connection_apps(blueprint))
+        connections = team_connection_map(client, resolved_team_id)
+        blueprint, wired_count, missing_apps = inject_connection_ids(blueprint, connections)
+
+        blueprint_modules = module_names_from_blueprint(blueprint)
+        http_modules = sorted(module for module in blueprint_modules if module.startswith("http:"))
+        if http_modules and not allow_http_fallback:
+            msg = (
+                "HTTP fallback modules detected: "
+                + ", ".join(http_modules)
+                + ". Re-run with --allow-http-fallback only if native modules are unavailable."
+            )
+            if json_output:
+                emit_json(
+                    ok=False,
+                    error=msg,
+                    data={"httpModules": http_modules},
+                    meta={"command": "scenario deploy"},
+                )
+                raise SystemExit(1)
+            raise click.ClickException(msg)
+
+        if missing_apps:
+            msg = (
+                "Missing native app connections for: "
+                + ", ".join(missing_apps)
+                + ". Use `boost connections list` to create/link these before deploy."
+            )
+            if json_output:
+                emit_json(
+                    ok=False,
+                    error=msg,
+                    data={"missingApps": missing_apps, "requiredApps": required_apps},
+                    meta={"command": "scenario deploy"},
+                )
+                raise SystemExit(1)
+            raise click.ClickException(msg)
 
         if guard_compat:
-            known_modules = _tenant_known_modules(
+            known_modules = tenant_known_modules(
                 client,
                 config.team_id,
                 config.organization_id,
                 scan_limit=scan_limit,
             )
-            blueprint_modules = _module_names_from_blueprint(blueprint)
+            blueprint, replacements = align_modules_to_known(blueprint, known_modules)
+            if replacements and not json_output:
+                console.print("[dim]Aligned modules to tenant-known variants:[/dim]")
+                for replacement in replacements:
+                    console.print(f"[dim]- {replacement}[/dim]")
+            blueprint_modules = module_names_from_blueprint(blueprint)
             unknown_modules = sorted(module for module in blueprint_modules if module not in known_modules)
 
             blocked_modules = []
@@ -541,6 +869,8 @@ def scenario_deploy(
                         "teamId": resolved_team_id,
                         "scenarioName": scenario_name,
                         "scheduleType": schedule_type,
+                        "requiredConnectionApps": required_apps,
+                        "autoWiredConnections": wired_count,
                         "warnings": warnings,
                     },
                     meta={"command": "scenario deploy", "dryRun": True},
@@ -574,6 +904,8 @@ def scenario_deploy(
                         "teamId": resolved_team_id,
                         "active": not inactive,
                         "scheduleType": schedule_type,
+                        "requiredConnectionApps": required_apps,
+                        "autoWiredConnections": wired_count,
                         "warnings": warnings,
                     },
                     meta={"command": "scenario deploy", "dryRun": False},

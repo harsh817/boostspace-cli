@@ -60,7 +60,7 @@ def export_blueprint(ctx, scenario_id, output, json_output):
 @click.argument("file", type=click.Path(exists=True))
 @click.option("--name", help="Scenario name (overrides blueprint name)")
 @click.option("--team-id", type=int, help="Team ID (overrides config)")
-@click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"]), default="on-demand")
+@click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"], case_sensitive=False), default="on-demand")
 @click.option("--inactive", is_flag=True, help="Create in inactive state")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
@@ -79,6 +79,7 @@ def import_blueprint(ctx, file, name, team_id, schedule_type, inactive, json_out
     with open(file) as f:
         blueprint = json.load(f)
 
+    schedule_type = str(schedule_type).casefold()
     scenario_name = name or blueprint.get("name", "Imported Scenario")
     scheduling = {"type": schedule_type}
     if schedule_type == "indefinitely":

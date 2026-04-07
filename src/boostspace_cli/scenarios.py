@@ -18,6 +18,16 @@ def scenarios():
     pass
 
 
+def _normalize_schedule_type(value: str) -> str:
+    normalized = value.strip().casefold()
+    allowed = {"on-demand", "indefinitely", "once", "immediately"}
+    if normalized not in allowed:
+        raise click.ClickException(
+            f"Invalid schedule type '{value}'. Use one of: on-demand, indefinitely, once, immediately."
+        )
+    return normalized
+
+
 @scenarios.command("list")
 @click.option("--team-id", type=int, help="Team ID (overrides config)")
 @click.option("--limit", type=int, default=50, help="Max results")
@@ -175,7 +185,7 @@ def get_scenario(ctx, scenario_id, scenario_name, blueprint, json_output):
 @click.option("--name", required=True, help="Scenario name")
 @click.option("--blueprint-file", type=click.Path(exists=True), help="Path to blueprint JSON file")
 @click.option("--team-id", type=int, help="Team ID (overrides config)")
-@click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"]), default="on-demand")
+@click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"], case_sensitive=False), default="on-demand")
 @click.option("--interval", type=int, default=3600, help="Schedule interval in seconds (for 'indefinitely')")
 @click.option("--inactive", is_flag=True, help="Create in inactive state")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
@@ -197,6 +207,14 @@ def create_scenario(ctx, name, blueprint_file, team_id, schedule_type, interval,
             blueprint = json.load(f)
     else:
         blueprint = {"name": name, "flow": [], "metadata": {"version": 1, "scenario": {"roundtrips": 1, "maxErrors": 3}}}
+
+    schedule_type = _normalize_schedule_type(schedule_type)
+    if schedule_type == "indefinitely" and interval <= 0:
+        message = "--interval must be a positive integer when --schedule-type indefinitely"
+        if json_output:
+            emit_json(ok=False, error=message, meta={"command": "scenarios create"})
+            raise SystemExit(1)
+        raise click.ClickException(message)
 
     scheduling = {"type": schedule_type}
     if schedule_type == "indefinitely":
@@ -236,7 +254,7 @@ def create_scenario(ctx, name, blueprint_file, team_id, schedule_type, interval,
 @click.argument("scenario_id", type=int)
 @click.option("--name", help="New name")
 @click.option("--active/--inactive", default=None, help="Activate or deactivate")
-@click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"]))
+@click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"], case_sensitive=False))
 @click.option("--interval", type=int, help="Schedule interval in seconds")
 @click.option("--max-errors", type=int, help="Max errors before stopping")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
@@ -252,7 +270,21 @@ def update_scenario(ctx, scenario_id, name, active, schedule_type, interval, max
     if active is not None:
         updates["active"] = active
     if schedule_type or interval is not None:
-        sched = {"type": schedule_type or "on-demand"}
+        normalized = _normalize_schedule_type(schedule_type or "on-demand")
+        if normalized == "indefinitely" and interval is None:
+            msg = "--interval is required when --schedule-type indefinitely"
+            if json_output:
+                emit_json(ok=False, error=msg, meta={"command": "scenarios update"})
+                raise SystemExit(1)
+            raise click.ClickException(msg)
+        if interval is not None and interval <= 0:
+            msg = "--interval must be a positive integer"
+            if json_output:
+                emit_json(ok=False, error=msg, meta={"command": "scenarios update"})
+                raise SystemExit(1)
+            raise click.ClickException(msg)
+
+        sched = {"type": normalized}
         if interval is not None:
             sched["interval"] = interval
         updates["scheduling"] = _json.dumps(sched)

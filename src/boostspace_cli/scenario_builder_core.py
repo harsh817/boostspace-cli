@@ -28,6 +28,15 @@ MODULE_COMPATIBILITY_RULES: dict[str, dict[str, str]] = {
     },
 }
 
+INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
+    "openai": ("openai", "gpt", "ai post", "ai-written", "ai written", "generate post", "caption", "rewrite"),
+    "google_sheets": ("sheet", "spreadsheet", "google sheet", "gsheet"),
+    "hubspot": ("hubspot", "crm", "create contact", "sync contact"),
+    "slack": ("slack", "notify", "notification", "send message", "channel"),
+    "instagram": ("instagram", "ig", "reel", "post to instagram"),
+    "http": ("http", "api", "webhook forward", "post to api"),
+}
+
 
 def slugify(text: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", text.strip().lower()).strip("-")
@@ -112,60 +121,327 @@ def research_goal(goal: str, max_results: int) -> list[dict[str, str]]:
     return merged[:max_results]
 
 
-def guess_modules(goal: str) -> list[dict[str, Any]]:
-    g = goal.casefold()
-    flow: list[dict[str, Any]] = [
-        {
-            "id": 1,
-            "module": "gateway:CustomWebHook",
-            "version": 1,
-            "parameters": {"maxResults": 1},
-            "mapper": {},
-        }
-    ]
-    module_id = 2
+def _has_intent(goal_lc: str, intent: str) -> bool:
+    terms = INTENT_PATTERNS.get(intent, ())
+    return any(term in goal_lc for term in terms)
 
-    if "sheet" in g:
+
+def _module_app(module_name: str) -> str:
+    return module_name.split(":", 1)[0].strip().casefold() if ":" in module_name else module_name.strip().casefold()
+
+
+def required_connection_apps(blueprint: dict[str, Any]) -> set[str]:
+    """Return app keys that need __IMTCONN__ wiring."""
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    apps: set[str] = set()
+    if not isinstance(flow, list):
+        return apps
+
+    for module in flow:
+        if not isinstance(module, dict):
+            continue
+        params = module.get("parameters")
+        module_name = module.get("module")
+        if not isinstance(params, dict) or not isinstance(module_name, str):
+            continue
+        if "__IMTCONN__" not in params:
+            continue
+        value = params.get("__IMTCONN__")
+        if not isinstance(value, int):
+            apps.add(_module_app(module_name))
+    return apps
+
+
+def inject_connection_ids(blueprint: dict[str, Any], connections: dict[str, int]) -> tuple[dict[str, Any], int, list[str]]:
+    """Inject integer connection IDs into modules requiring __IMTCONN__."""
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    if not isinstance(flow, list):
+        return blueprint, 0, []
+
+    wired = 0
+    missing: set[str] = set()
+    for module in flow:
+        if not isinstance(module, dict):
+            continue
+        params = module.get("parameters")
+        module_name = module.get("module")
+        if not isinstance(params, dict) or not isinstance(module_name, str):
+            continue
+        if "__IMTCONN__" not in params:
+            continue
+        if isinstance(params.get("__IMTCONN__"), int):
+            continue
+
+        app = _module_app(module_name)
+        conn_id = connections.get(app)
+        if conn_id is None:
+            missing.add(app)
+            continue
+        params["__IMTCONN__"] = int(conn_id)
+        wired += 1
+
+    return blueprint, wired, sorted(missing)
+
+
+def align_modules_to_known(blueprint: dict[str, Any], known_modules: set[str]) -> tuple[dict[str, Any], list[str]]:
+    """Replace unknown modules with best known module from same app family."""
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    if not isinstance(flow, list) or not known_modules:
+        return blueprint, []
+
+    replacements: list[str] = []
+    known_by_app: dict[str, list[str]] = {}
+    for known in known_modules:
+        app = _module_app(known)
+        known_by_app.setdefault(app, []).append(known)
+
+    for module in flow:
+        if not isinstance(module, dict):
+            continue
+        current = module.get("module")
+        if not isinstance(current, str) or current in known_modules:
+            continue
+        app = _module_app(current)
+        candidates = sorted(known_by_app.get(app, []), key=str.casefold)
+        if not candidates:
+            continue
+
+        current_action = current.split(":", 1)[1].casefold() if ":" in current else ""
+        preferred = next((item for item in candidates if current_action and current_action in item.casefold()), None)
+        replacement = preferred or candidates[0]
+        module["module"] = replacement
+        replacements.append(f"{current} -> {replacement}")
+
+    return blueprint, replacements
+
+
+def seed_known_native_modules(
+    blueprint: dict[str, Any],
+    goal_apps: set[str],
+    known_modules: set[str],
+) -> tuple[dict[str, Any], list[str]]:
+    """Append tenant-known native modules for requested goal apps not yet in flow."""
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    if not isinstance(flow, list) or not goal_apps or not known_modules:
+        return blueprint, []
+
+    existing_apps = {_module_app(str(module.get("module", ""))) for module in flow if isinstance(module, dict)}
+    max_id = 0
+    for module in flow:
+        if isinstance(module, dict) and isinstance(module.get("id"), int):
+            max_id = max(max_id, int(module["id"]))
+
+    known_by_app: dict[str, list[str]] = {}
+    for item in known_modules:
+        app = _module_app(item)
+        known_by_app.setdefault(app, []).append(item)
+
+    def rank(module_name: str) -> tuple[int, str]:
+        lowered = module_name.casefold()
+        if "create" in lowered or "add" in lowered:
+            return (0, module_name)
+        if "update" in lowered or "upsert" in lowered:
+            return (1, module_name)
+        if "watch" in lowered or "new" in lowered:
+            return (2, module_name)
+        if "search" in lowered or "list" in lowered or "get" in lowered:
+            return (3, module_name)
+        return (4, module_name)
+
+    added: list[str] = []
+    for app in sorted(goal_apps):
+        if app in existing_apps:
+            continue
+        candidates = sorted(known_by_app.get(app, []), key=rank)
+        if not candidates:
+            continue
+        max_id += 1
+        selected = candidates[0]
+        flow.append(
+            {
+                "id": max_id,
+                "module": selected,
+                "version": 1,
+                "parameters": {},
+                "mapper": {},
+            }
+        )
+        added.append(selected)
+        existing_apps.add(app)
+
+    return blueprint, added
+
+
+def guess_modules(
+    goal: str,
+    trigger: str = "webhook",
+    connections: dict[str, int] | None = None,
+) -> list[dict[str, Any]]:
+    """Build a flow list from a goal string.
+
+    Args:
+        goal: Natural-language workflow goal.
+        trigger: One of 'webhook', 'schedule'. Defaults to 'webhook'.
+        connections: Optional mapping of app name -> integer connection ID,
+                     e.g. {"openai-gpt-3": 42, "google-sheets": 17}.
+                     When provided, native app modules use the real ID instead
+                     of a string placeholder (which the API rejects).
+    """
+    g = goal.casefold()
+    conns = connections or {}
+
+    # --- trigger module ---
+    if trigger == "schedule":
+        flow: list[dict[str, Any]] = []  # scheduled scenarios have no trigger module
+    else:
+        flow = [
+            {
+                "id": 1,
+                "module": "gateway:CustomWebHook",
+                "version": 1,
+                "parameters": {"maxResults": 1},
+                "mapper": {},
+            }
+        ]
+    module_id = len(flow) + 1
+
+    # --- OpenAI / AI text generation ---
+    if _has_intent(g, "openai") or _has_intent(g, "instagram"):
+        conn_id = conns.get("openai-gpt-3")
+        params: dict[str, Any] = {}
+        if conn_id:
+            params["__IMTCONN__"] = conn_id
+        flow.append(
+            {
+                "id": module_id,
+                "module": "openai-gpt-3:CreateCompletion",
+                "version": 1,
+                "parameters": params,
+                "mapper": {
+                    "model": "gpt-3.5-turbo-instruct",
+                    "prompt": "Write an engaging social media post for today. Include emojis and 5-8 relevant hashtags at the end. Keep it under 200 words.",
+                    "max_tokens": 300,
+                    "temperature": "0.8",
+                },
+            }
+        )
+        ai_module_id = module_id
+        module_id += 1
+    else:
+        ai_module_id = None
+
+    # --- Google Sheets ---
+    if _has_intent(g, "google_sheets"):
+        conn_id = conns.get("google-sheets")
+        params = {
+            "spreadsheetId": "{{spreadsheet_id}}",
+            "sheetName": "{{sheet_name}}",
+        }
+        if conn_id:
+            params["__IMTCONN__"] = conn_id
+        else:
+            params["__IMTCONN__"] = "{{connection_google_sheets}}"
         flow.append(
             {
                 "id": module_id,
                 "module": "google-sheets:addRow",
                 "version": 1,
-                "parameters": {
-                    "__IMTCONN__": "{{connection_google_sheets}}",
-                    "spreadsheetId": "{{spreadsheet_id}}",
-                    "sheetName": "{{sheet_name}}",
-                },
+                "parameters": params,
                 "mapper": {"row": "{{mapped_row_fields}}"},
             }
         )
         module_id += 1
 
-    if "hubspot" in g or "crm" in g:
+    # --- HubSpot / CRM ---
+    if _has_intent(g, "hubspot"):
+        conn_id = conns.get("hubspot")
+        params = {}
+        if conn_id:
+            params["__IMTCONN__"] = conn_id
+        else:
+            params["__IMTCONN__"] = "{{connection_hubspot}}"
         flow.append(
             {
                 "id": module_id,
                 "module": "hubspot:createContact",
                 "version": 1,
-                "parameters": {"__IMTCONN__": "{{connection_hubspot}}"},
+                "parameters": params,
                 "mapper": {"email": "{{email}}", "firstname": "{{first_name}}", "lastname": "{{last_name}}"},
             }
         )
         module_id += 1
 
-    if "slack" in g:
+    # --- Slack ---
+    if _has_intent(g, "slack"):
+        conn_id = conns.get("slack")
+        params = {"channel": "{{slack_channel}}"}
+        if conn_id:
+            params["__IMTCONN__"] = conn_id
+        else:
+            params["__IMTCONN__"] = "{{connection_slack}}"
         flow.append(
             {
                 "id": module_id,
                 "module": "slack:createMessage",
                 "version": 1,
-                "parameters": {"__IMTCONN__": "{{connection_slack}}", "channel": "{{slack_channel}}"},
+                "parameters": params,
                 "mapper": {"text": "{{message_text}}"},
             }
         )
         module_id += 1
 
-    if len(flow) == 1:
+    # --- Instagram (via Graph API — no native module in Make/Boost.space) ---
+    if _has_intent(g, "instagram"):
+        caption_ref = f"{{{{{ai_module_id}.choices[0].text}}}}" if ai_module_id else "{{caption}}"
+        # Step 1: create media container
+        flow.append(
+            {
+                "id": module_id,
+                "module": "http:ActionSendData",
+                "version": 3,
+                "parameters": {"handleErrors": False, "useNewZLibDeCompress": True},
+                "mapper": {
+                    "url": "https://graph.facebook.com/v18.0/{{IG_USER_ID}}/media",
+                    "method": "post",
+                    "headers": [{"name": "Content-Type", "value": "application/json"}],
+                    "body": f'{{"image_url":"{{{{IMAGE_URL}}}}","caption":"{caption_ref}","access_token":"{{{{IG_ACCESS_TOKEN}}}}"}}'
+                },
+            }
+        )
+        container_module_id = module_id
+        module_id += 1
+        # Step 2: publish container
+        publish_body = '{{"creation_id":"{cid}","access_token":"{{{{IG_ACCESS_TOKEN}}}}"}}'.format(
+            cid="{{" + str(container_module_id) + ".data.id}}"
+        )
+        flow.append(
+            {
+                "id": module_id,
+                "module": "http:ActionSendData",
+                "version": 3,
+                "parameters": {"handleErrors": False, "useNewZLibDeCompress": True},
+                "mapper": {
+                    "url": "https://graph.facebook.com/v18.0/{{IG_USER_ID}}/media_publish",
+                    "method": "post",
+                    "headers": [{"name": "Content-Type", "value": "application/json"}],
+                    "body": publish_body,
+                },
+            }
+        )
+        module_id += 1
+
+    # --- fallback ---
+    if trigger == "schedule" and not flow:
+        flow.append(
+            {
+                "id": module_id,
+                "module": "util:SetVariables",
+                "version": 1,
+                "parameters": {},
+                "mapper": {"value": "{{payload}}"},
+            }
+        )
+    elif len(flow) == 1 and flow[0]["module"] == "gateway:CustomWebHook" and _has_intent(g, "http"):
         flow.append(
             {
                 "id": module_id,
@@ -179,14 +455,19 @@ def guess_modules(goal: str) -> list[dict[str, Any]]:
     return flow
 
 
-def build_draft(goal: str, sources: list[dict[str, str]]) -> dict[str, Any]:
+def build_draft(
+    goal: str,
+    sources: list[dict[str, str]],
+    trigger: str = "webhook",
+    connections: dict[str, int] | None = None,
+) -> dict[str, Any]:
     return {
         "goal": goal,
         "createdAt": int(time.time()),
         "sources": sources,
         "blueprint": {
             "name": f"Draft - {goal[:70]}",
-            "flow": guess_modules(goal),
+            "flow": guess_modules(goal, trigger=trigger, connections=connections),
             "metadata": {"version": 1, "scenario": {"roundtrips": 1, "maxErrors": 3}},
         },
         "notes": [

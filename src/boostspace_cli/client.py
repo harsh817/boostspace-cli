@@ -1,5 +1,6 @@
 """API client for Boost.space / Make Integrator."""
 
+import json
 from typing import Any, Optional
 
 import httpx
@@ -33,7 +34,16 @@ def _error_hint(status_code: int, code: Optional[str], detail: Any) -> str:
     if code == "IM007":
         return "Invalid blueprint/module. Run 'boost scenario repair' then validate."
     if code == "SC400":
-        return "Request validation failed. Check required fields and IDs."
+        base = "Request validation failed. Check required fields and IDs."
+        if isinstance(detail, dict):
+            suberrors = detail.get("suberrors")
+            if isinstance(suberrors, list) and suberrors:
+                first = suberrors[0]
+                if isinstance(first, dict) and first.get("message"):
+                    return f"{base} {first['message']}"
+                if isinstance(first, str):
+                    return f"{base} {first}"
+        return base
     if status_code == 401:
         return "Unauthorized. Run 'boost auth doctor --fix' or re-login."
     if status_code == 403:
@@ -138,6 +148,12 @@ class APIClient:
     def get_user(self) -> dict:
         return self.get("/users/me")
 
+    def list_connections(self, team_id: Optional[int] = None) -> dict:
+        params = {}
+        if team_id:
+            params["teamId"] = team_id
+        return self.get("/connections", params=params)
+
     def list_scenarios(
         self,
         team_id: Optional[int] = None,
@@ -156,19 +172,19 @@ class APIClient:
         return self.get(f"/scenarios/{scenario_id}")
 
     def get_blueprint(self, scenario_id: int) -> dict:
-        return self.get(f"/scenarios/{scenario_id}/blueprint")
+        payload = self.get(f"/scenarios/{scenario_id}/blueprint")
+        blueprint = self.extract_blueprint(payload)
+        return blueprint or payload
 
     def create_scenario(self, team_id: int, blueprint: dict, scheduling: Optional[dict] = None, name: Optional[str] = None) -> dict:
-        import json
-
+        resolved_scheduling = scheduling or {"type": "on-demand"}
         payload = {
             "teamId": team_id,
             "blueprint": json.dumps(blueprint),
+            "scheduling": json.dumps(resolved_scheduling),
         }
         if name:
             payload["name"] = name
-        if scheduling:
-            payload["scheduling"] = json.dumps(scheduling)
         return self.post("/scenarios", json=payload)
 
     def update_scenario(self, scenario_id: int, updates: dict) -> dict:
@@ -236,3 +252,28 @@ class APIClient:
 
     def __exit__(self, *args):
         self.close()
+    @staticmethod
+    def extract_blueprint(payload: Any) -> Optional[dict[str, Any]]:
+        """Extract a blueprint dict from different API response shapes."""
+        candidate: Any = payload
+        if isinstance(payload, dict):
+            if isinstance(payload.get("blueprint"), (dict, str)):
+                candidate = payload.get("blueprint")
+            elif isinstance(payload.get("response"), dict) and isinstance(payload["response"].get("blueprint"), (dict, str)):
+                candidate = payload["response"].get("blueprint")
+            elif isinstance(payload.get("scenario"), dict) and isinstance(payload["scenario"].get("blueprint"), (dict, str)):
+                candidate = payload["scenario"].get("blueprint")
+
+        if isinstance(candidate, str):
+            try:
+                parsed = json.loads(candidate)
+            except Exception:
+                return None
+            if isinstance(parsed, dict):
+                return parsed
+            return None
+
+        if isinstance(candidate, dict) and ("flow" in candidate or "modules" in candidate or "metadata" in candidate):
+            return candidate
+
+        return None
