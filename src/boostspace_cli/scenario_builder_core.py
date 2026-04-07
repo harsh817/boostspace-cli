@@ -15,6 +15,7 @@ DUCKDUCKGO_HTML = "https://duckduckgo.com/html/"
 PLACEHOLDER_RE = re.compile(r"\{\{[^{}]+\}\}")
 RESULT_LINK_RE = re.compile(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>', re.IGNORECASE)
 TAG_RE = re.compile(r"<[^>]+>")
+TOKEN_RE = re.compile(r"\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}")
 
 MODULE_COMPATIBILITY_RULES: dict[str, dict[str, str]] = {
     "webhooks:CustomWebhook": {
@@ -583,3 +584,164 @@ def repair_blueprint_data(blueprint: dict[str, Any], goal: str) -> tuple[dict[st
         fixes.append("Added metadata block.")
 
     return blueprint, fixes
+
+
+def collect_placeholder_tokens(payload: Any) -> set[str]:
+    tokens: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            for value in node.values():
+                walk(value)
+            return
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+            return
+        if isinstance(node, str):
+            for match in TOKEN_RE.findall(node):
+                token = match.strip()
+                if token:
+                    tokens.add(token)
+
+    walk(payload)
+    return tokens
+
+
+def _is_credential_token(token: str) -> bool:
+    if "." in token:
+        return False
+    upper_token = token.upper()
+    credential_markers = (
+        "TOKEN",
+        "SECRET",
+        "PASSWORD",
+        "API_KEY",
+        "CLIENT_ID",
+        "CLIENT_SECRET",
+        "ACCESS",
+        "BEARER",
+    )
+    if any(marker in upper_token for marker in credential_markers):
+        return True
+    return token.isupper() and len(token) >= 4
+
+
+def apply_credentials(payload: Any, credentials: dict[str, str]) -> tuple[Any, int]:
+    """Replace {{TOKEN}} placeholders with credential values."""
+    replaced = 0
+
+    def replace_string(text: str) -> str:
+        nonlocal replaced
+
+        def sub(match: re.Match[str]) -> str:
+            nonlocal replaced
+            token = match.group(1).strip()
+            if token in credentials:
+                replaced += 1
+                return str(credentials[token])
+            return match.group(0)
+
+        return TOKEN_RE.sub(sub, text)
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {key: walk(value) for key, value in node.items()}
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        if isinstance(node, str):
+            return replace_string(node)
+        return node
+
+    return walk(payload), replaced
+
+
+def unresolved_credential_tokens(payload: Any) -> list[str]:
+    tokens = collect_placeholder_tokens(payload)
+    unresolved = sorted(token for token in tokens if _is_credential_token(token))
+    return unresolved
+
+
+def apply_field_mapping_hints(blueprint: dict[str, Any], sample_data: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Improve mapper placeholders using provided sample data."""
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    if not isinstance(flow, list):
+        return blueprint, []
+
+    sample_keys = [str(key) for key in sample_data.keys()]
+    sample_keys_lc = {key.casefold(): key for key in sample_keys}
+    fixes: list[str] = []
+
+    def best_key(token: str) -> str | None:
+        if token in sample_data:
+            return token
+        token_lc = token.casefold()
+        if token_lc in sample_keys_lc:
+            return sample_keys_lc[token_lc]
+        compact = re.sub(r"[^a-z0-9]", "", token_lc)
+        for key in sample_keys:
+            key_compact = re.sub(r"[^a-z0-9]", "", key.casefold())
+            if key_compact == compact:
+                return key
+        return None
+
+    for module in flow:
+        if not isinstance(module, dict):
+            continue
+        module_name = str(module.get("module", ""))
+        mapper = module.get("mapper")
+        if not isinstance(mapper, dict):
+            continue
+
+        if module_name == "google-sheets:addRow" and mapper.get("row") == "{{mapped_row_fields}}":
+            mapper["row"] = {key: "{{" + key + "}}" for key in sample_keys}
+            fixes.append("Mapped google-sheets:addRow row fields from sample payload")
+
+        for key, value in list(mapper.items()):
+            if not isinstance(value, str):
+                continue
+            matches = TOKEN_RE.findall(value)
+            if len(matches) != 1:
+                continue
+            token = matches[0]
+            if token in sample_data:
+                continue
+            replacement_key = best_key(token)
+            if not replacement_key:
+                continue
+            mapper[key] = "{{" + replacement_key + "}}"
+            fixes.append(f"Mapped {module_name}.{key} from {token} to {replacement_key}")
+
+    return blueprint, fixes
+
+
+def build_sample_payload(blueprint: dict[str, Any], seed_data: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build a sample payload for test-run validation."""
+    sample: dict[str, Any] = dict(seed_data or {})
+    tokens = collect_placeholder_tokens(blueprint)
+
+    for token in sorted(tokens):
+        if token in sample:
+            continue
+        if token.startswith("connection_") or "." in token:
+            continue
+        if _is_credential_token(token):
+            continue
+        if token.startswith("spreadsheet") or token.startswith("sheet"):
+            continue
+
+        token_lc = token.casefold()
+        if "email" in token_lc:
+            sample[token] = "qa@example.com"
+        elif "phone" in token_lc:
+            sample[token] = "+12025550123"
+        elif "name" in token_lc:
+            sample[token] = "Test User"
+        elif "id" in token_lc:
+            sample[token] = "test-id-001"
+        elif "date" in token_lc:
+            sample[token] = "2026-01-01"
+        else:
+            sample[token] = f"sample-{token}"
+
+    return sample

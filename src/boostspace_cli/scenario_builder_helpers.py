@@ -10,6 +10,30 @@ from .client import APIClient, APIError
 from .config import Config
 
 
+APP_ALIASES: dict[str, tuple[str, ...]] = {
+    "hubspot": ("hubspot", "hubspotcrm", "hubspot-marketing-hub"),
+    "google-sheets": ("google-sheets", "googlesheets", "gsheets", "google-sheet"),
+    "openai-gpt-3": ("openai-gpt-3", "openai-gpt", "openai", "chatgpt"),
+    "slack": ("slack",),
+    "notion": ("notion",),
+    "airtable": ("airtable",),
+}
+
+_ALIAS_TO_CANONICAL: dict[str, str] = {}
+for canonical, aliases in APP_ALIASES.items():
+    _ALIAS_TO_CANONICAL[canonical] = canonical
+    for alias in aliases:
+        _ALIAS_TO_CANONICAL[alias] = canonical
+
+
+def normalize_app_key(value: str) -> str:
+    key = value.strip().casefold().replace("_", "-")
+    if not key:
+        return key
+    key = key.replace(" ", "-")
+    return _ALIAS_TO_CANONICAL.get(key, key)
+
+
 def parse_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
@@ -82,7 +106,7 @@ def parse_connection_pairs(connection_pairs: tuple[str, ...]) -> dict[str, int]:
         if ":" not in pair:
             raise click.ClickException(f"--connection must be APP:ID (got '{pair}')")
         app, _, cid = pair.partition(":")
-        app_name = app.strip().casefold()
+        app_name = normalize_app_key(app)
         if not app_name:
             raise click.ClickException(f"Connection app cannot be empty (got '{pair}')")
         try:
@@ -103,11 +127,27 @@ def team_connection_map(client: APIClient, team_id: int | None) -> dict[str, int
         if not isinstance(conn, dict):
             continue
         raw_app = conn.get("accountType") or conn.get("type") or ""
+        raw_name = conn.get("accountName") or conn.get("name") or ""
         conn_id = conn.get("id")
-        if not raw_app or not isinstance(conn_id, int):
+        if not isinstance(conn_id, int):
             continue
-        app = str(raw_app).strip().casefold()
-        conn_map.setdefault(app, conn_id)
+
+        candidates: list[str] = []
+        if raw_app:
+            candidates.append(str(raw_app))
+        if raw_name:
+            candidates.append(str(raw_name))
+
+        for candidate in candidates:
+            normalized = normalize_app_key(candidate)
+            if not normalized:
+                continue
+            conn_map.setdefault(normalized, conn_id)
+
+            # Add alias keys for ergonomic lookups
+            for alias, canonical in _ALIAS_TO_CANONICAL.items():
+                if canonical == normalized:
+                    conn_map.setdefault(alias, conn_id)
     return conn_map
 
 

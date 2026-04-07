@@ -497,3 +497,127 @@ def test_scenario_coach_json_minimal_guidance(monkeypatch, tmp_path):
     assert payload["meta"]["command"] == "scenario coach"
     assert payload["data"]["draftOutput"] == str(output_file)
     assert isinstance(payload["data"]["recommendations"], list)
+
+
+def test_scenario_deploy_replaces_credentials_and_verifies_run(monkeypatch, tmp_path):
+    monkeypatch.setattr(config_mod, "DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
+    monkeypatch.setattr(config_mod, "DEFAULT_COOKIE_PATH", tmp_path / "cookies.json")
+
+    draft_path = tmp_path / "draft-cred.json"
+    draft_path.write_text(
+        json.dumps(
+            {
+                "blueprint": {
+                    "name": "Credential Draft",
+                    "flow": [
+                        {
+                            "id": 1,
+                            "module": "http:ActionSendData",
+                            "version": 3,
+                            "parameters": {},
+                            "mapper": {"url": "https://api.example.com?token={{API_TOKEN}}", "body": "{\"email\":\"{{email}}\"}"},
+                        }
+                    ],
+                    "metadata": {"version": 1, "scenario": {"roundtrips": 1, "maxErrors": 3}},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get_user(self):
+            return {"user": {"email": "qa@example.com"}}
+
+        def list_connections(self, team_id=None):
+            _ = team_id
+            return {"connections": []}
+
+        def create_scenario(self, **_kwargs):
+            return {"scenario": {"id": 555}}
+
+        def run_scenario(self, scenario_id, data=None, responsive=True, callback_url=None):
+            _ = scenario_id, data, responsive, callback_url
+            return {"executionId": "exec-1", "status": 1}
+
+    monkeypatch.setattr(scenario_builder_mod, "APIClient", FakeClient)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "scenario",
+            "deploy",
+            "--file",
+            str(draft_path),
+            "--team-id",
+            "123",
+            "--allow-http-fallback",
+            "--no-guard-compat",
+            "--credential",
+            "API_TOKEN=secret",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = _payload(result.output)
+    assert payload["ok"] is True
+    assert payload["data"]["credentialReplacements"] >= 1
+    assert payload["data"]["verification"]["statusText"] == "success"
+
+
+def test_scenario_deploy_fails_when_credentials_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(config_mod, "DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
+    monkeypatch.setattr(config_mod, "DEFAULT_COOKIE_PATH", tmp_path / "cookies.json")
+
+    draft_path = tmp_path / "draft-missing-cred.json"
+    draft_path.write_text(
+        json.dumps(
+            {
+                "blueprint": {
+                    "name": "Missing Credential Draft",
+                    "flow": [
+                        {
+                            "id": 1,
+                            "module": "http:ActionSendData",
+                            "version": 3,
+                            "parameters": {},
+                            "mapper": {"url": "https://api.example.com?token={{API_TOKEN}}"},
+                        }
+                    ],
+                    "metadata": {"version": 1, "scenario": {"roundtrips": 1, "maxErrors": 3}},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "scenario",
+            "deploy",
+            "--file",
+            str(draft_path),
+            "--dry-run",
+            "--allow-http-fallback",
+            "--no-guard-compat",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = _payload(result.output)
+    assert payload["ok"] is False
+    assert "Missing credential values" in payload["error"]

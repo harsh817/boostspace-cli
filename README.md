@@ -86,6 +86,10 @@ boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheet
 # 6) Deploy for real
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json
 
+# 6b) Deploy with credentials + sample payload + verification run
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json \
+  --credential API_TOKEN=... --sample-file sample.json --json
+
 # If draft intentionally contains HTTP fallback modules, opt in explicitly
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --allow-http-fallback
 
@@ -111,6 +115,7 @@ boost executions incomplete --name "HM | Daily Report Leads" --json
 boost webhooks list --json
 boost scenario setup --file draft-capture-lead-webhook-and-push-to-google-sheets.json --json
 boost scenario catalog --json
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --sample-json '{"email":"qa@example.com"}' --json
 ```
 
 JSON schema (all `--json` commands):

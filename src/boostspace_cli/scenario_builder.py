@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -16,8 +17,12 @@ from .docs_catalog import load_documented_app_slugs, load_documented_features, m
 from .jsonio import emit_json
 from .scenario_builder_core import (
     align_modules_to_known,
+    apply_credentials,
+    apply_field_mapping_hints,
+    build_sample_payload,
     MODULE_COMPATIBILITY_RULES,
     build_draft,
+    collect_placeholder_tokens,
     extract_blueprint,
     fetch_summary,
     inject_connection_ids,
@@ -26,6 +31,7 @@ from .scenario_builder_core import (
     research_goal,
     seed_known_native_modules,
     slugify,
+    unresolved_credential_tokens,
     validate_blueprint_data,
 )
 from .scenario_builder_helpers import (
@@ -105,6 +111,52 @@ def _infer_trigger(goal: str) -> str:
     g = goal.casefold()
     schedule_markers = ("every ", "daily", "weekly", "monthly", "schedule", "cron", "hourly")
     return "schedule" if any(marker in g for marker in schedule_markers) else "webhook"
+
+
+def _parse_credentials(credential_pairs: tuple[str, ...], credential_file: Path | None) -> dict[str, str]:
+    credentials: dict[str, str] = {}
+
+    if credential_file:
+        parsed = json.loads(credential_file.read_text(encoding="utf-8"))
+        if not isinstance(parsed, dict):
+            raise click.ClickException("--credential-file must contain a JSON object")
+        for key, value in parsed.items():
+            if value is None:
+                continue
+            credentials[str(key).strip()] = str(value)
+
+    for pair in credential_pairs:
+        if "=" not in pair:
+            raise click.ClickException(f"--credential must be KEY=VALUE (got '{pair}')")
+        key, value = pair.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise click.ClickException(f"Credential key cannot be empty (got '{pair}')")
+        credentials[key] = value
+
+    # Environment variables are fallback (do not override explicit values)
+    for key, value in os.environ.items():
+        if key not in credentials:
+            credentials[key] = value
+
+    return credentials
+
+
+def _load_sample_data(sample_file: Path | None, sample_json: str | None) -> dict[str, object]:
+    sample: dict[str, object] = {}
+    if sample_file:
+        loaded = json.loads(sample_file.read_text(encoding="utf-8"))
+        if not isinstance(loaded, dict):
+            raise click.ClickException("--sample-file must contain a JSON object")
+        sample = {str(k): v for k, v in loaded.items()}
+
+    if sample_json:
+        loaded = json.loads(sample_json)
+        if not isinstance(loaded, dict):
+            raise click.ClickException("--sample-json must be a JSON object")
+        sample.update({str(k): v for k, v in loaded.items()})
+
+    return sample
 
 
 @scenario_builder.command("coach")
@@ -690,6 +742,12 @@ def scenario_brainstorm(
 @click.option("--repair", is_flag=True, help="Auto-repair draft in-memory before deploy")
 @click.option("--guard-compat/--no-guard-compat", default=True, show_default=True, help="Block deploy when modules are not proven in tenant")
 @click.option("--allow-http-fallback", is_flag=True, help="Allow HTTP modules when no native module exists")
+@click.option("--credential", "credential_pairs", multiple=True, metavar="KEY=VALUE", help="Credential value to inject into placeholders")
+@click.option("--credential-file", type=click.Path(exists=True, path_type=Path), help="JSON file with credential key/value pairs")
+@click.option("--sample-file", type=click.Path(exists=True, path_type=Path), help="Sample JSON payload for field mapping + verification run")
+@click.option("--sample-json", help="Inline sample JSON payload for field mapping + verification run")
+@click.option("--map-fields/--no-map-fields", default=True, show_default=True, help="Auto-map known field placeholders from sample payload")
+@click.option("--verify-run/--no-verify-run", default=True, show_default=True, help="Run scenario once after deploy and inspect execution status")
 @click.option("--scan-limit", type=int, default=60, show_default=True, help="How many scenarios to scan for known modules")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
@@ -705,6 +763,12 @@ def scenario_deploy(
     repair: bool,
     guard_compat: bool,
     allow_http_fallback: bool,
+    credential_pairs: tuple[str, ...],
+    credential_file: Path | None,
+    sample_file: Path | None,
+    sample_json: str | None,
+    map_fields: bool,
+    verify_run: bool,
     scan_limit: int,
     json_output: bool,
 ) -> None:
@@ -714,6 +778,39 @@ def scenario_deploy(
     blueprint = extract_blueprint(payload)
     goal = str(payload.get("goal", "Workflow"))
     schedule_type = normalize_schedule_type(schedule_type)
+
+    try:
+        credentials = _parse_credentials(credential_pairs, credential_file)
+        user_sample = _load_sample_data(sample_file, sample_json)
+    except click.ClickException as exc:
+        if json_output:
+            emit_json(ok=False, error=str(exc), meta={"command": "scenario deploy"})
+            raise SystemExit(1)
+        raise
+
+    blueprint, credential_replacements = apply_credentials(blueprint, credentials)
+    unresolved_credentials = unresolved_credential_tokens(blueprint)
+    if unresolved_credentials:
+        msg = (
+            "Missing credential values for placeholders: "
+            + ", ".join(unresolved_credentials)
+            + ". Provide with --credential KEY=VALUE or --credential-file."
+        )
+        if json_output:
+            emit_json(
+                ok=False,
+                error=msg,
+                data={"missingCredentials": unresolved_credentials},
+                meta={"command": "scenario deploy"},
+            )
+            raise SystemExit(1)
+        raise click.ClickException(msg)
+
+    mapping_fixes: list[str] = []
+    if map_fields and user_sample:
+        blueprint, mapping_fixes = apply_field_mapping_hints(blueprint, user_sample)
+
+    sample_payload = build_sample_payload(blueprint, user_sample)
 
     if schedule_type == "indefinitely" and interval <= 0:
         msg = "--interval must be a positive integer when --schedule-type indefinitely"
@@ -746,6 +843,12 @@ def scenario_deploy(
         console.print(f"[yellow]Validation warnings: {len(warnings)}[/yellow]")
         for warn in warnings:
             console.print(f"  [yellow]-[/yellow] {warn}")
+
+    runtime_tokens = sorted(
+        token
+        for token in collect_placeholder_tokens(blueprint)
+        if "." not in token and not token.startswith("connection_") and token not in credentials
+    )
 
     with APIClient(config) as client:
         try:
@@ -871,6 +974,10 @@ def scenario_deploy(
                         "scheduleType": schedule_type,
                         "requiredConnectionApps": required_apps,
                         "autoWiredConnections": wired_count,
+                        "credentialReplacements": credential_replacements,
+                        "fieldMappingFixes": mapping_fixes,
+                        "runtimeTokens": runtime_tokens,
+                        "samplePayloadKeys": sorted(sample_payload.keys()),
                         "warnings": warnings,
                     },
                     meta={"command": "scenario deploy", "dryRun": True},
@@ -881,6 +988,10 @@ def scenario_deploy(
             console.print(f"[dim]Team ID: {resolved_team_id}[/dim]")
             console.print(f"[dim]Scenario name: {scenario_name}[/dim]")
             console.print(f"[dim]Schedule: {schedule_type}[/dim]")
+            if mapping_fixes:
+                console.print(f"[dim]Field mapping fixes: {len(mapping_fixes)}[/dim]")
+            if credential_replacements:
+                console.print(f"[dim]Credential replacements: {credential_replacements}[/dim]")
             return
 
         try:
@@ -895,6 +1006,35 @@ def scenario_deploy(
             if inactive:
                 client.stop_scenario(created_id)
 
+            verify_result: dict[str, object] = {
+                "attempted": bool(verify_run and not inactive),
+                "status": None,
+                "statusText": None,
+                "executionId": None,
+                "error": None,
+            }
+
+            if verify_run and not inactive:
+                try:
+                    run_result = client.run_scenario(created_id, data=sample_payload, responsive=True)
+                    verify_result["executionId"] = run_result.get("executionId")
+                    verify_status = run_result.get("status")
+                    verify_result["status"] = verify_status
+                    if str(verify_status) == "1":
+                        verify_result["statusText"] = "success"
+                    elif str(verify_status) == "2":
+                        verify_result["statusText"] = "warning"
+                    elif str(verify_status) == "3":
+                        verify_result["statusText"] = "error"
+                    else:
+                        verify_result["statusText"] = str(verify_status)
+                except APIError as verify_exc:
+                    verify_result["error"] = str(verify_exc)
+
+            if verify_run and not inactive and (verify_result.get("statusText") == "error" or verify_result.get("error")):
+                client.stop_scenario(created_id)
+                inactive = True
+
             if json_output:
                 emit_json(
                     data={
@@ -906,16 +1046,32 @@ def scenario_deploy(
                         "scheduleType": schedule_type,
                         "requiredConnectionApps": required_apps,
                         "autoWiredConnections": wired_count,
+                        "credentialReplacements": credential_replacements,
+                        "fieldMappingFixes": mapping_fixes,
+                        "runtimeTokens": runtime_tokens,
+                        "samplePayloadKeys": sorted(sample_payload.keys()),
+                        "verification": verify_result,
                         "warnings": warnings,
                     },
                     meta={"command": "scenario deploy", "dryRun": False},
                 )
+                if verify_result.get("statusText") == "error" or verify_result.get("error"):
+                    raise SystemExit(1)
                 return
 
             console.print(f"[green]Scenario deployed: {scenario_name} ({created_id})[/green]")
 
+            if verify_result.get("attempted"):
+                if verify_result.get("error"):
+                    console.print(f"[red]Verification run failed:[/red] {verify_result['error']}")
+                else:
+                    console.print(f"[bold]Verification status:[/bold] {verify_result.get('statusText', 'unknown')}")
+
             if inactive:
                 console.print(f"[yellow]Scenario {created_id} set to inactive.[/yellow]")
+
+            if verify_result.get("statusText") == "error" or verify_result.get("error"):
+                raise SystemExit(1)
         except APIError as exc:
             if json_output:
                 emit_json(ok=False, error=f"Deploy failed: {exc}", meta={"command": "scenario deploy"})
