@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
+import time
+from pathlib import Path
 from typing import Any
 
 import click
 
 from .client import APIClient, APIError
 from .config import Config
+
+TENANT_MODULE_CACHE_PATH = Path.home() / ".boostspace-cli" / "cache" / "tenant_modules.json"
 
 
 APP_ALIASES: dict[str, tuple[str, ...]] = {
@@ -90,7 +95,26 @@ def tenant_known_modules(
     team_id: int | None,
     organization_id: int | None,
     scan_limit: int,
+    use_cache: bool = True,
+    refresh_cache: bool = False,
+    cache_ttl_seconds: int = 1800,
+    cache_path: Path | None = None,
 ) -> set[str]:
+    resolved_cache_path = cache_path or TENANT_MODULE_CACHE_PATH
+    cache_key = f"team:{team_id or 0}|org:{organization_id or 0}|limit:{int(scan_limit)}"
+
+    if use_cache and not refresh_cache:
+        cached = _load_cached_tenant_modules(
+            cache_key,
+            ttl_seconds=cache_ttl_seconds,
+            cache_path=resolved_cache_path,
+        )
+        if cached is not None:
+            return cached
+
+    if scan_limit <= 0:
+        return set()
+
     scenario_page = client.list_scenarios(team_id=team_id, organization_id=organization_id, limit=scan_limit)
     scenarios = scenario_page.get("scenarios", [])
     known: set[str] = set()
@@ -109,7 +133,82 @@ def tenant_known_modules(
 
         known |= module_names_from_blueprint(blueprint)
 
+    if use_cache:
+        _save_cached_tenant_modules(
+            cache_key,
+            modules=known,
+            cache_path=resolved_cache_path,
+            team_id=team_id,
+            organization_id=organization_id,
+            scan_limit=scan_limit,
+        )
+
     return known
+
+
+def _load_cached_tenant_modules(cache_key: str, ttl_seconds: int, cache_path: Path) -> set[str] | None:
+    if ttl_seconds <= 0 or not cache_path.exists():
+        return None
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    entries = payload.get("entries", {})
+    if not isinstance(entries, dict):
+        return None
+    entry = entries.get(cache_key)
+    if not isinstance(entry, dict):
+        return None
+
+    scanned_at = entry.get("scannedAt")
+    if not isinstance(scanned_at, int):
+        return None
+
+    age_seconds = int(time.time()) - scanned_at
+    if age_seconds > ttl_seconds:
+        return None
+
+    modules = entry.get("modules", [])
+    if not isinstance(modules, list):
+        return None
+    return {str(module) for module in modules if str(module).strip()}
+
+
+def _save_cached_tenant_modules(
+    cache_key: str,
+    modules: set[str],
+    cache_path: Path,
+    team_id: int | None,
+    organization_id: int | None,
+    scan_limit: int,
+) -> None:
+    payload: dict[str, Any] = {"entries": {}}
+    if cache_path.exists():
+        try:
+            loaded = json.loads(cache_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                payload = loaded
+        except Exception:
+            payload = {"entries": {}}
+
+    entries = payload.setdefault("entries", {})
+    if not isinstance(entries, dict):
+        entries = {}
+        payload["entries"] = entries
+
+    entries[cache_key] = {
+        "teamId": team_id,
+        "organizationId": organization_id,
+        "scanLimit": int(scan_limit),
+        "scannedAt": int(time.time()),
+        "modules": sorted(modules, key=str.casefold),
+    }
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def parse_connection_pairs(connection_pairs: tuple[str, ...]) -> dict[str, int]:

@@ -98,6 +98,9 @@ boost scenario research --goal "Capture lead webhook and push to Google Sheets"
 # 2) Generate a draft blueprint from spec (or use --goal directly)
 boost scenario draft --spec spec-capture-lead-webhook-and-push-to-google-sheets.json
 
+# 2b) Speed-first draft profile (2-3 min target)
+boost scenario draft --goal "Capture lead webhook and push to Google Sheets" --fast --timings
+
 # (Optional) check native connection readiness from a draft
 boost scenario setup --file draft-capture-lead-webhook-and-push-to-google-sheets.json
 
@@ -113,6 +116,9 @@ boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheet
 # 6) Deploy for real
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json
 
+# 6a) Speed-first deploy profile (reduced checks)
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --fast --timings
+
 # 6b) Deploy with credentials + sample payload + verification run
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json \
   --credential API_TOKEN=... --sample-file sample.json --json
@@ -122,6 +128,7 @@ boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheet
 
 # 7) Check tenant-proven module names (deploy guard helper)
 boost scenario modules --limit 60
+boost scenario modules --limit 60 --refresh
 
 # 8) Sync/list documented apps + platform features from Boost docs catalog
 boost scenario catalog --refresh

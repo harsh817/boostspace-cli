@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import click
+from click.core import ParameterSource
 from rich.table import Table
 
 from .client import APIClient, APIError
-from .catalog.store import known_module_ids
+from .catalog.store import load_registry_with_source, known_module_ids
 from .config import Config
 from .console import console
 from .docs_catalog import load_documented_app_slugs, load_documented_features, match_goal_apps
@@ -45,6 +47,8 @@ from .scenario_builder_helpers import (
     tenant_known_modules,
 )
 
+TENANT_CACHE_TTL_SECONDS = 1800
+
 
 @click.group("scenario")
 def scenario_builder() -> None:
@@ -53,19 +57,29 @@ def scenario_builder() -> None:
 
 @scenario_builder.command("modules")
 @click.option("--limit", type=int, default=60, show_default=True, help="Scenarios to scan")
+@click.option("--refresh", is_flag=True, help="Ignore cache and rescan tenant scenarios")
+@click.option("--cache-ttl", type=int, default=TENANT_CACHE_TTL_SECONDS, show_default=True, help="Tenant module cache TTL in seconds")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
-def scenario_modules(ctx: click.Context, limit: int, json_output: bool) -> None:
+def scenario_modules(ctx: click.Context, limit: int, refresh: bool, cache_ttl: int, json_output: bool) -> None:
     """List modules proven in your tenant from existing scenarios."""
     config: Config = ctx.obj["config"]
     with APIClient(config) as client:
         modules = sorted(
-            tenant_known_modules(client, config.team_id, config.organization_id, scan_limit=limit),
+            tenant_known_modules(
+                client,
+                config.team_id,
+                config.organization_id,
+                scan_limit=limit,
+                use_cache=True,
+                refresh_cache=refresh,
+                cache_ttl_seconds=cache_ttl,
+            ),
             key=str.casefold,
         )
 
     if json_output:
-        emit_json(data=modules, meta={"command": "scenario modules", "limit": limit})
+        emit_json(data=modules, meta={"command": "scenario modules", "limit": limit, "refresh": bool(refresh), "cacheTtl": cache_ttl})
         return
 
     if not modules:
@@ -158,6 +172,52 @@ def _load_sample_data(sample_file: Path | None, sample_json: str | None) -> dict
         sample.update({str(k): v for k, v in loaded.items()})
 
     return sample
+
+
+def _resolve_profile(profile: str, fast: bool) -> str:
+    if fast:
+        return "fast"
+    return str(profile).casefold()
+
+
+def _param_is_default(ctx: click.Context, param_name: str) -> bool:
+    source = ctx.get_parameter_source(param_name)
+    return source in {ParameterSource.DEFAULT, ParameterSource.DEFAULT_MAP}
+
+
+def _module_confidence_rows(
+    modules: set[str],
+    tenant_modules: set[str],
+    catalog_modules: set[str],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for module in sorted(modules, key=str.casefold):
+        if module in tenant_modules:
+            confidence = "tenant_proven"
+        elif module in catalog_modules:
+            confidence = "catalog_known"
+        else:
+            confidence = "unknown"
+        rows.append({"module": module, "confidence": confidence})
+    return rows
+
+
+def _catalog_staleness_days() -> float | None:
+    registry, _, _ = load_registry_with_source()
+    meta = registry.get("meta", {}) if isinstance(registry, dict) else {}
+    generated_at = meta.get("generatedAt")
+    if not isinstance(generated_at, str) or not generated_at.strip():
+        return None
+
+    try:
+        created_at = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    delta = datetime.now(timezone.utc) - created_at
+    return delta.total_seconds() / 86400.0
 
 
 @scenario_builder.command("coach")
@@ -432,7 +492,13 @@ def scenario_research(goal: str, max_results: int, output: Path | None, json_out
 @click.option("--trigger", type=click.Choice(["webhook", "schedule"], case_sensitive=False), default="webhook", show_default=True, help="Trigger type")
 @click.option("--connection", "connection_pairs", multiple=True, metavar="APP:ID",
               help="Real connection ID for a native app module, e.g. --connection openai-gpt-3:42. Repeat for multiple.")
+@click.option("--profile", type=click.Choice(["safe", "balanced", "fast"], case_sensitive=False), default="safe", show_default=True, help="Draft speed/safety profile")
+@click.option("--fast", "fast_mode", is_flag=True, help="Shortcut for --profile fast")
+@click.option("--tenant-scan-limit", type=int, default=60, show_default=True, help="How many scenarios to scan for tenant-proven modules")
+@click.option("--refresh-tenant-modules", is_flag=True, help="Force tenant module rescan (ignore cache)")
+@click.option("--cache-ttl", type=int, default=TENANT_CACHE_TTL_SECONDS, show_default=True, help="Tenant module cache TTL in seconds")
 @click.option("--max-results", type=int, default=6, show_default=True)
+@click.option("--timings", is_flag=True, help="Include stage timings in output")
 @click.option("--output", type=click.Path(path_type=Path), help="Output path for draft JSON")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
@@ -442,7 +508,13 @@ def scenario_draft(
     spec_file: Path | None,
     trigger: str,
     connection_pairs: tuple[str, ...],
+    profile: str,
+    fast_mode: bool,
+    tenant_scan_limit: int,
+    refresh_tenant_modules: bool,
+    cache_ttl: int,
     max_results: int,
+    timings: bool,
     output: Path | None,
     json_output: bool,
 ) -> None:
@@ -457,6 +529,32 @@ def scenario_draft(
     if not goal:
         raise click.ClickException("Provide --goal or --spec")
 
+    resolved_profile = _resolve_profile(profile, fast_mode)
+    if resolved_profile not in {"safe", "balanced", "fast"}:
+        raise click.ClickException(f"Unsupported profile: {resolved_profile}")
+
+    effective_max_results = int(max_results)
+    effective_scan_limit = int(tenant_scan_limit)
+    if resolved_profile == "balanced":
+        if _param_is_default(ctx, "max_results"):
+            effective_max_results = 4
+        if _param_is_default(ctx, "tenant_scan_limit"):
+            effective_scan_limit = 30
+    elif resolved_profile == "fast":
+        if _param_is_default(ctx, "max_results"):
+            effective_max_results = 2
+        if _param_is_default(ctx, "tenant_scan_limit"):
+            effective_scan_limit = 0
+
+    profile_notes: list[str] = []
+    if resolved_profile == "balanced":
+        profile_notes.append("balanced profile: moderate research depth and tenant scan")
+    if resolved_profile == "fast":
+        profile_notes.append("fast profile: minimal research depth and cache-first tenant modules")
+
+    stage_timings: dict[str, float] = {}
+    t0 = time.perf_counter()
+
     manual_connections = parse_connection_pairs(connection_pairs)
     auto_connections: dict[str, int] = {}
     config: Config = ctx.obj["config"]
@@ -466,20 +564,39 @@ def scenario_draft(
             auto_connections = team_connection_map(client, resolved_team_id)
         except Exception:
             auto_connections = {}
+    stage_timings["connections"] = round(time.perf_counter() - t0, 3)
 
     connections = {**auto_connections, **manual_connections}
 
-    sources = research_goal(goal, max_results=max_results)
+    t1 = time.perf_counter()
+    sources = research_goal(goal, max_results=effective_max_results)
+    stage_timings["research"] = round(time.perf_counter() - t1, 3)
+
+    t2 = time.perf_counter()
     draft = build_draft(goal, sources, trigger=trigger, connections=connections or None)
+    stage_timings["draftBuild"] = round(time.perf_counter() - t2, 3)
+
     known_modules: set[str] = set()
     seeded_modules: list[str] = []
     docs_goal_apps: list[str] = []
     docs_goal_features: list[str] = []
     uncovered_docs_apps: list[str] = []
+    module_confidence: list[dict[str, str]] = []
+    catalog_modules = known_module_ids()
+
+    t3 = time.perf_counter()
 
     with APIClient(config) as client:
         try:
-            known_modules = tenant_known_modules(client, config.team_id, config.organization_id, scan_limit=60)
+            known_modules = tenant_known_modules(
+                client,
+                config.team_id,
+                config.organization_id,
+                scan_limit=effective_scan_limit,
+                use_cache=True,
+                refresh_cache=refresh_tenant_modules,
+                cache_ttl_seconds=cache_ttl,
+            )
             draft_blueprint = extract_blueprint(draft)
             docs_apps = load_documented_app_slugs(refresh=False)
             docs_features = load_documented_features(refresh=False)
@@ -495,31 +612,59 @@ def scenario_draft(
             if docs_goal_apps:
                 flow_apps = {module.split(":", 1)[0].casefold() for module in module_names_from_blueprint(draft_blueprint)}
                 uncovered_docs_apps = sorted(app for app in docs_goal_apps if app not in flow_apps)
+
+            module_confidence = _module_confidence_rows(
+                module_names_from_blueprint(draft_blueprint),
+                known_modules,
+                catalog_modules,
+            )
         except Exception:
             pass
+    stage_timings["tenantKnowledge"] = round(time.perf_counter() - t3, 3)
+
+    catalog_age_days = _catalog_staleness_days()
+    if catalog_age_days is not None and catalog_age_days > 7:
+        profile_notes.append(f"catalog is {catalog_age_days:.1f} days old; run `boost catalog refresh --force`")
 
     if output is None:
         output = Path.cwd() / f"draft-{slugify(goal)}.json"
 
+    if module_confidence:
+        draft["moduleConfidence"] = module_confidence
+
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(draft, indent=2), encoding="utf-8")
+
+    total_seconds = round(sum(stage_timings.values()), 3)
     if json_output:
         emit_json(
             data={
                 "goal": goal,
                 "output": str(output),
                 "moduleCount": len(extract_blueprint(draft).get("flow", [])),
+                "profile": resolved_profile,
+                "maxResults": effective_max_results,
+                "tenantScanLimit": effective_scan_limit,
                 "resolvedConnections": connections,
                 "goalAppsFromDocs": docs_goal_apps,
                 "goalFeaturesFromDocs": docs_goal_features,
                 "seededNativeModules": seeded_modules,
                 "uncoveredGoalApps": uncovered_docs_apps,
+                "moduleConfidence": module_confidence,
+                "profileNotes": profile_notes,
+                "catalogAgeDays": round(catalog_age_days, 2) if catalog_age_days is not None else None,
+                "timings": stage_timings if timings else None,
+                "totalSeconds": total_seconds,
             },
-            meta={"command": "scenario draft"},
+            meta={"command": "scenario draft", "profile": resolved_profile},
         )
         return
 
     console.print(f"[green]Draft created:[/green] {output}")
+    if resolved_profile != "safe":
+        console.print(f"[dim]Profile:[/dim] {resolved_profile}")
+    for note in profile_notes:
+        console.print(f"[dim]{note}[/dim]")
     if seeded_modules:
         console.print("[dim]Seeded native modules from tenant-known apps:[/dim]")
         for module_name in seeded_modules:
@@ -527,6 +672,8 @@ def scenario_draft(
     if uncovered_docs_apps:
         console.print("[yellow]Goal includes documented apps without mapped native modules:[/yellow] " + ", ".join(uncovered_docs_apps))
         console.print("[dim]Run `boost scenario setup --app <app>` and ensure tenant-proven modules exist.[/dim]")
+    if timings:
+        console.print(f"[dim]Timings (s): {stage_timings} | total={total_seconds}[/dim]")
     console.print(f"[dim]Next: boost scenario validate --file {output}[/dim]")
 
 
@@ -742,6 +889,8 @@ def scenario_brainstorm(
 @click.option("--dry-run", is_flag=True, help="Validate and resolve target context without creating")
 @click.option("--repair", is_flag=True, help="Auto-repair draft in-memory before deploy")
 @click.option("--guard-compat/--no-guard-compat", default=True, show_default=True, help="Block deploy when modules are not proven in tenant")
+@click.option("--profile", type=click.Choice(["safe", "balanced", "fast"], case_sensitive=False), default="safe", show_default=True, help="Deploy speed/safety profile")
+@click.option("--fast", "fast_mode", is_flag=True, help="Shortcut for --profile fast")
 @click.option("--allow-http-fallback", is_flag=True, help="Allow HTTP modules when no native module exists")
 @click.option("--allow-unknown-modules", is_flag=True, help="Allow modules missing from offline catalog")
 @click.option("--credential", "credential_pairs", multiple=True, metavar="KEY=VALUE", help="Credential value to inject into placeholders")
@@ -751,6 +900,10 @@ def scenario_brainstorm(
 @click.option("--map-fields/--no-map-fields", default=True, show_default=True, help="Auto-map known field placeholders from sample payload")
 @click.option("--verify-run/--no-verify-run", default=True, show_default=True, help="Run scenario once after deploy and inspect execution status")
 @click.option("--scan-limit", type=int, default=60, show_default=True, help="How many scenarios to scan for known modules")
+@click.option("--refresh-tenant-modules", is_flag=True, help="Force tenant module rescan (ignore cache)")
+@click.option("--cache-ttl", type=int, default=TENANT_CACHE_TTL_SECONDS, show_default=True, help="Tenant module cache TTL in seconds")
+@click.option("--catalog-max-age-days", type=int, default=7, show_default=True, help="Warn when catalog is older than this")
+@click.option("--timings", is_flag=True, help="Include stage timings in output")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
 def scenario_deploy(
@@ -764,6 +917,8 @@ def scenario_deploy(
     dry_run: bool,
     repair: bool,
     guard_compat: bool,
+    profile: str,
+    fast_mode: bool,
     allow_http_fallback: bool,
     allow_unknown_modules: bool,
     credential_pairs: tuple[str, ...],
@@ -773,6 +928,10 @@ def scenario_deploy(
     map_fields: bool,
     verify_run: bool,
     scan_limit: int,
+    refresh_tenant_modules: bool,
+    cache_ttl: int,
+    catalog_max_age_days: int,
+    timings: bool,
     json_output: bool,
 ) -> None:
     """Deploy a draft/blueprint to Boost.space with preflight checks."""
@@ -782,6 +941,35 @@ def scenario_deploy(
     goal = str(payload.get("goal", "Workflow"))
     schedule_type = normalize_schedule_type(schedule_type)
 
+    resolved_profile = _resolve_profile(profile, fast_mode)
+    if resolved_profile not in {"safe", "balanced", "fast"}:
+        raise click.ClickException(f"Unsupported profile: {resolved_profile}")
+
+    effective_guard_compat = bool(guard_compat)
+    effective_verify_run = bool(verify_run)
+    effective_scan_limit = int(scan_limit)
+    if resolved_profile == "balanced":
+        if _param_is_default(ctx, "verify_run"):
+            effective_verify_run = False
+        if _param_is_default(ctx, "scan_limit"):
+            effective_scan_limit = 30
+    elif resolved_profile == "fast":
+        if _param_is_default(ctx, "guard_compat"):
+            effective_guard_compat = False
+        if _param_is_default(ctx, "verify_run"):
+            effective_verify_run = False
+        if _param_is_default(ctx, "scan_limit"):
+            effective_scan_limit = 0
+
+    profile_notes: list[str] = []
+    if resolved_profile == "balanced":
+        profile_notes.append("balanced profile: verification disabled by default")
+    if resolved_profile == "fast":
+        profile_notes.append("fast profile: compatibility scan and verify-run are reduced")
+
+    stage_timings: dict[str, float] = {}
+
+    t_preflight = time.perf_counter()
     try:
         credentials = _parse_credentials(credential_pairs, credential_file)
         user_sample = _load_sample_data(sample_file, sample_json)
@@ -814,6 +1002,7 @@ def scenario_deploy(
         blueprint, mapping_fixes = apply_field_mapping_hints(blueprint, user_sample)
 
     sample_payload = build_sample_payload(blueprint, user_sample)
+    stage_timings["preflight"] = round(time.perf_counter() - t_preflight, 3)
 
     if schedule_type == "indefinitely" and interval <= 0:
         msg = "--interval must be a positive integer when --schedule-type indefinitely"
@@ -853,7 +1042,12 @@ def scenario_deploy(
         if "." not in token and not token.startswith("connection_") and token not in credentials
     )
 
+    catalog_age_days = _catalog_staleness_days()
+    if catalog_age_days is not None and catalog_age_days > max(0, int(catalog_max_age_days)):
+        profile_notes.append(f"catalog is {catalog_age_days:.1f} days old; run `boost catalog refresh --force`")
+
     with APIClient(config) as client:
+        t_api_setup = time.perf_counter()
         try:
             me = client.get_user()
             user = me.get("authUser") or me.get("user") or me
@@ -870,15 +1064,18 @@ def scenario_deploy(
                 raise SystemExit(1)
             console.print(f"[red]{exc}[/red]")
             raise SystemExit(1)
+        stage_timings["apiContext"] = round(time.perf_counter() - t_api_setup, 3)
 
         scenario_name = override_name or blueprint.get("name") or f"Draft - {goal[:50]}"
         scheduling: dict[str, object] = {"type": schedule_type}
         if schedule_type == "indefinitely":
             scheduling["interval"] = int(interval)
 
+        t_connections = time.perf_counter()
         required_apps = sorted(required_connection_apps(blueprint))
         connections = team_connection_map(client, resolved_team_id)
         blueprint, wired_count, missing_apps = inject_connection_ids(blueprint, connections)
+        stage_timings["connections"] = round(time.perf_counter() - t_connections, 3)
 
         blueprint_modules = module_names_from_blueprint(blueprint)
         http_modules = sorted(module for module in blueprint_modules if module.startswith("http:"))
@@ -914,14 +1111,22 @@ def scenario_deploy(
                 raise SystemExit(1)
             raise click.ClickException(msg)
 
-        if guard_compat:
+        known_modules: set[str] = set()
+        catalog_modules = known_module_ids()
+        unknown_modules: list[str] = []
+        unproven_tenant_modules: list[str] = []
+
+        if effective_guard_compat:
+            t_compat = time.perf_counter()
             known_modules = tenant_known_modules(
                 client,
                 config.team_id,
                 config.organization_id,
-                scan_limit=scan_limit,
+                scan_limit=effective_scan_limit,
+                use_cache=True,
+                refresh_cache=refresh_tenant_modules,
+                cache_ttl_seconds=cache_ttl,
             )
-            catalog_modules = known_module_ids()
             blueprint, replacements = align_modules_to_known(blueprint, known_modules)
             if replacements and not json_output:
                 console.print("[dim]Aligned modules to tenant-known variants:[/dim]")
@@ -979,12 +1184,25 @@ def scenario_deploy(
                 for module in unproven_tenant_modules:
                     console.print(f"  [yellow]-[/yellow] {module}")
                 console.print("[dim]Continuing because modules are known in offline registry.[/dim]")
+            stage_timings["compatScan"] = round(time.perf_counter() - t_compat, 3)
+
+        module_confidence = _module_confidence_rows(blueprint_modules, known_modules, catalog_modules)
+
+        if resolved_profile == "balanced" and _param_is_default(ctx, "verify_run") and not inactive:
+            effective_verify_run = bool(unproven_tenant_modules)
+            if effective_verify_run:
+                profile_notes.append("balanced profile enabled verify-run due tenant-unproven modules")
 
         if dry_run:
+            total_seconds = round(sum(stage_timings.values()), 3)
             if json_output:
                 emit_json(
                     data={
                         "dryRun": True,
+                        "profile": resolved_profile,
+                        "guardCompat": effective_guard_compat,
+                        "verifyRun": effective_verify_run,
+                        "scanLimit": effective_scan_limit,
                         "user": user.get("email", "unknown"),
                         "teamId": resolved_team_id,
                         "scenarioName": scenario_name,
@@ -995,12 +1213,18 @@ def scenario_deploy(
                         "fieldMappingFixes": mapping_fixes,
                         "runtimeTokens": runtime_tokens,
                         "samplePayloadKeys": sorted(sample_payload.keys()),
+                        "moduleConfidence": module_confidence,
+                        "profileNotes": profile_notes,
+                        "catalogAgeDays": round(catalog_age_days, 2) if catalog_age_days is not None else None,
+                        "timings": stage_timings if timings else None,
+                        "totalSeconds": total_seconds,
                         "warnings": warnings,
                     },
-                    meta={"command": "scenario deploy", "dryRun": True},
+                    meta={"command": "scenario deploy", "dryRun": True, "profile": resolved_profile},
                 )
                 return
             console.print("[green]Dry-run passed.[/green]")
+            console.print(f"[dim]Profile: {resolved_profile}[/dim]")
             console.print(f"[dim]User: {user.get('email', 'unknown')}[/dim]")
             console.print(f"[dim]Team ID: {resolved_team_id}[/dim]")
             console.print(f"[dim]Scenario name: {scenario_name}[/dim]")
@@ -1009,31 +1233,41 @@ def scenario_deploy(
                 console.print(f"[dim]Field mapping fixes: {len(mapping_fixes)}[/dim]")
             if credential_replacements:
                 console.print(f"[dim]Credential replacements: {credential_replacements}[/dim]")
+            for note in profile_notes:
+                console.print(f"[dim]{note}[/dim]")
+            if timings:
+                console.print(f"[dim]Timings (s): {stage_timings} | total={total_seconds}[/dim]")
             return
 
         try:
+            t_create = time.perf_counter()
             result = client.create_scenario(
                 team_id=resolved_team_id,
                 blueprint=blueprint,
                 scheduling=scheduling,
                 name=scenario_name,
             )
+            stage_timings["createScenario"] = round(time.perf_counter() - t_create, 3)
             created = result.get("scenario", result)
             created_id = int(created.get("id"))
+
+            t_lifecycle = time.perf_counter()
             if not inactive:
                 client.start_scenario(created_id)
             if inactive:
                 client.stop_scenario(created_id)
+            stage_timings["lifecycle"] = round(time.perf_counter() - t_lifecycle, 3)
 
             verify_result: dict[str, object] = {
-                "attempted": bool(verify_run and not inactive),
+                "attempted": bool(effective_verify_run and not inactive),
                 "status": None,
                 "statusText": None,
                 "executionId": None,
                 "error": None,
             }
 
-            if verify_run and not inactive:
+            if effective_verify_run and not inactive:
+                t_verify = time.perf_counter()
                 try:
                     run_result = client.run_scenario(created_id, data=sample_payload, responsive=True)
                     verify_result["executionId"] = run_result.get("executionId")
@@ -1049,15 +1283,21 @@ def scenario_deploy(
                         verify_result["statusText"] = str(verify_status)
                 except APIError as verify_exc:
                     verify_result["error"] = str(verify_exc)
+                stage_timings["verifyRun"] = round(time.perf_counter() - t_verify, 3)
 
-            if verify_run and not inactive and (verify_result.get("statusText") == "error" or verify_result.get("error")):
+            if effective_verify_run and not inactive and (verify_result.get("statusText") == "error" or verify_result.get("error")):
                 client.stop_scenario(created_id)
                 inactive = True
 
+            total_seconds = round(sum(stage_timings.values()), 3)
             if json_output:
                 emit_json(
                     data={
                         "dryRun": False,
+                        "profile": resolved_profile,
+                        "guardCompat": effective_guard_compat,
+                        "verifyRun": effective_verify_run,
+                        "scanLimit": effective_scan_limit,
                         "id": created_id,
                         "name": scenario_name,
                         "teamId": resolved_team_id,
@@ -1069,16 +1309,24 @@ def scenario_deploy(
                         "fieldMappingFixes": mapping_fixes,
                         "runtimeTokens": runtime_tokens,
                         "samplePayloadKeys": sorted(sample_payload.keys()),
+                        "moduleConfidence": module_confidence,
+                        "profileNotes": profile_notes,
+                        "catalogAgeDays": round(catalog_age_days, 2) if catalog_age_days is not None else None,
+                        "timings": stage_timings if timings else None,
+                        "totalSeconds": total_seconds,
                         "verification": verify_result,
                         "warnings": warnings,
                     },
-                    meta={"command": "scenario deploy", "dryRun": False},
+                    meta={"command": "scenario deploy", "dryRun": False, "profile": resolved_profile},
                 )
                 if verify_result.get("statusText") == "error" or verify_result.get("error"):
                     raise SystemExit(1)
                 return
 
             console.print(f"[green]Scenario deployed: {scenario_name} ({created_id})[/green]")
+            console.print(f"[dim]Profile: {resolved_profile}[/dim]")
+            for note in profile_notes:
+                console.print(f"[dim]{note}[/dim]")
 
             if verify_result.get("attempted"):
                 if verify_result.get("error"):
@@ -1088,6 +1336,9 @@ def scenario_deploy(
 
             if inactive:
                 console.print(f"[yellow]Scenario {created_id} set to inactive.[/yellow]")
+
+            if timings:
+                console.print(f"[dim]Timings (s): {stage_timings} | total={total_seconds}[/dim]")
 
             if verify_result.get("statusText") == "error" or verify_result.get("error"):
                 raise SystemExit(1)
