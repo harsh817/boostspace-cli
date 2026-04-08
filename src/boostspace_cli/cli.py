@@ -200,6 +200,7 @@ from . import scenario_builder  # noqa: E402
 from . import connections  # noqa: E402
 from . import catalog_cli  # noqa: E402
 from . import formulas_cli  # noqa: E402
+from . import mcp_cli  # noqa: E402
 
 main.add_command(scenarios.scenarios)
 main.add_command(executions.executions)
@@ -210,6 +211,7 @@ main.add_command(scenario_builder.scenario_builder)
 main.add_command(connections.connections)
 main.add_command(catalog_cli.catalog_cli)
 main.add_command(formulas_cli.formulas_cli)
+main.add_command(mcp_cli.mcp_cli)
 
 
 if __name__ == "__main__":

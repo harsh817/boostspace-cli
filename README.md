@@ -173,6 +173,34 @@ boost formulas search date --json
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --sample-json '{"email":"qa@example.com"}' --json
 ```
 
+## Local MCP Server (Option B: Read + Plan + Dry-Run)
+
+```bash
+# Build local knowledge store
+boost mcp sync --refresh-templates --json
+boost mcp info --json
+
+# Start MCP server
+cd mcp-server
+npm install
+npm start
+```
+
+Primary MCP tools exposed:
+
+- `sync_knowledge`
+- `knowledge_info`
+- `search_modules`
+- `search_formulas`
+- `search_templates_public`
+- `search_templates_workspace`
+- `get_workspace_folders`
+- `resolve_or_create_folder`
+- `plan_scenario`
+- `generate_draft`
+- `dry_run_deploy`
+- `debug_scenario`
+
 JSON schema (all `--json` commands):
 
 ```json
