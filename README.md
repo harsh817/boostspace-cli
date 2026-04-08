@@ -98,6 +98,10 @@ boost scenario research --goal "Capture lead webhook and push to Google Sheets"
 # 2) Generate a draft blueprint from spec (or use --goal directly)
 boost scenario draft --spec spec-capture-lead-webhook-and-push-to-google-sheets.json
 
+# 2a) Include workspace public templates as signals
+boost scenario templates --query lead --public-only
+boost scenario draft --goal "Capture lead webhook and push to Google Sheets" --use-workspace-templates
+
 # 2b) Speed-first draft profile (2-3 min target)
 boost scenario draft --goal "Capture lead webhook and push to Google Sheets" --fast --timings
 
@@ -116,6 +120,10 @@ boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheet
 # 6) Deploy for real
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json
 
+# 6c) Deploy into a specific folder (create if missing)
+boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json \
+  --folder-name "Lead Flows" --create-folder
+
 # 6a) Speed-first deploy profile (reduced checks)
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --fast --timings
 
@@ -129,6 +137,11 @@ boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheet
 # 7) Check tenant-proven module names (deploy guard helper)
 boost scenario modules --limit 60
 boost scenario modules --limit 60 --refresh
+
+# 7b) Folder operations + filtering
+boost scenarios folders --query lead
+boost scenarios folder-create --name "Lead Flows"
+boost scenarios list --folder-name "Lead Flows"
 
 # 8) Sync/list documented apps + platform features from Boost docs catalog
 boost scenario catalog --refresh

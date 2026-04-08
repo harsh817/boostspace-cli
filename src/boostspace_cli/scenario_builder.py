@@ -46,6 +46,7 @@ from .scenario_builder_helpers import (
     team_connection_map,
     tenant_known_modules,
 )
+from .workspace_assets import extract_folders, extract_templates, find_folder_by_name, search_templates
 
 TENANT_CACHE_TTL_SECONDS = 1800
 
@@ -120,6 +121,63 @@ def scenario_catalog(refresh: bool, json_output: bool) -> None:
         console.print(app)
     if features:
         console.print(f"[green]Documented platform features: {len(features)}[/green]")
+
+
+@scenario_builder.command("templates")
+@click.option("--team-id", type=int, help="Team ID override")
+@click.option("--limit", type=int, default=100, show_default=True)
+@click.option("--query", help="Filter workspace templates by keyword")
+@click.option("--public-only", is_flag=True, help="Prefer templates marked as public")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def scenario_templates(ctx: click.Context, team_id: int | None, limit: int, query: str | None, public_only: bool, json_output: bool) -> None:
+    """List workspace scenario templates that can guide draft generation."""
+    config: Config = ctx.obj["config"]
+    tid = team_id or config.team_id
+
+    with APIClient(config) as client:
+        try:
+            payload = client.list_workspace_templates(
+                team_id=tid,
+                organization_id=config.organization_id,
+                limit=limit,
+                query=query,
+                public_only=public_only,
+            )
+        except APIError as exc:
+            if json_output:
+                emit_json(ok=False, error=str(exc), meta={"command": "scenario templates"})
+                raise SystemExit(1)
+            console.print(f"[red]{exc}[/red]")
+            raise SystemExit(1)
+
+    templates = extract_templates(payload)
+    rows = search_templates(templates, query=query, public_only=public_only, limit=limit)
+
+    if json_output:
+        emit_json(
+            data={
+                "items": rows,
+                "count": len(rows),
+                "sourcePath": payload.get("_sourcePath") if isinstance(payload, dict) else None,
+            },
+            meta={"command": "scenario templates", "query": query, "publicOnly": bool(public_only), "limit": limit},
+        )
+        return
+
+    if not rows:
+        console.print("[yellow]No workspace templates found for your filter.[/yellow]")
+        return
+
+    table = Table(title=f"Workspace Templates ({len(rows)})")
+    table.add_column("Name", style="white")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Public", style="green", no_wrap=True)
+    table.add_column("Folder", style="magenta", no_wrap=True)
+    for row in rows:
+        public_text = "yes" if row.get("public") is True else ("no" if row.get("public") is False else "?")
+        table.add_row(str(row.get("name", "")), str(row.get("id", "")), public_text, str(row.get("folderId") or "-"))
+    console.print(table)
 
 
 def _infer_trigger(goal: str) -> str:
@@ -218,6 +276,50 @@ def _catalog_staleness_days() -> float | None:
 
     delta = datetime.now(timezone.utc) - created_at
     return delta.total_seconds() / 86400.0
+
+
+def _resolve_folder_id(
+    client: APIClient,
+    team_id: int | None,
+    organization_id: int | None,
+    folder_id: int | None,
+    folder_name: str | None,
+    create_folder: bool,
+    parent_folder_id: int | None,
+) -> int | None:
+    if folder_id is not None:
+        return int(folder_id)
+    if not folder_name:
+        return None
+
+    payload = client.list_scenario_folders(team_id=team_id, organization_id=organization_id, limit=300)
+    folders = extract_folders(payload)
+    match, candidates = find_folder_by_name(folders, folder_name)
+    if match is not None:
+        resolved = match.get("id")
+        if isinstance(resolved, int):
+            return resolved
+
+    if len(candidates) > 1:
+        names = ", ".join(str(item.get("name", "")) for item in candidates[:8])
+        raise click.ClickException(f"Multiple folders match '{folder_name}': {names}")
+
+    if create_folder:
+        created = client.create_scenario_folder(
+            name=folder_name,
+            team_id=team_id,
+            organization_id=organization_id,
+            parent_id=parent_folder_id,
+        )
+        folder_payload = created.get("folder", created)
+        created_id = folder_payload.get("id") if isinstance(folder_payload, dict) else None
+        if isinstance(created_id, int):
+            return created_id
+        raise click.ClickException("Folder creation did not return a valid folder ID")
+
+    raise click.ClickException(
+        f"Folder '{folder_name}' not found. Use --create-folder to create it or pass --folder-id explicitly."
+    )
 
 
 @scenario_builder.command("coach")
@@ -492,6 +594,9 @@ def scenario_research(goal: str, max_results: int, output: Path | None, json_out
 @click.option("--trigger", type=click.Choice(["webhook", "schedule"], case_sensitive=False), default="webhook", show_default=True, help="Trigger type")
 @click.option("--connection", "connection_pairs", multiple=True, metavar="APP:ID",
               help="Real connection ID for a native app module, e.g. --connection openai-gpt-3:42. Repeat for multiple.")
+@click.option("--use-workspace-templates/--no-use-workspace-templates", default=True, show_default=True, help="Use workspace public templates as planning signal")
+@click.option("--workspace-template-limit", type=int, default=80, show_default=True, help="How many workspace templates to scan")
+@click.option("--template-match-limit", type=int, default=5, show_default=True, help="How many matched templates to attach")
 @click.option("--profile", type=click.Choice(["safe", "balanced", "fast"], case_sensitive=False), default="safe", show_default=True, help="Draft speed/safety profile")
 @click.option("--fast", "fast_mode", is_flag=True, help="Shortcut for --profile fast")
 @click.option("--tenant-scan-limit", type=int, default=60, show_default=True, help="How many scenarios to scan for tenant-proven modules")
@@ -508,6 +613,9 @@ def scenario_draft(
     spec_file: Path | None,
     trigger: str,
     connection_pairs: tuple[str, ...],
+    use_workspace_templates: bool,
+    workspace_template_limit: int,
+    template_match_limit: int,
     profile: str,
     fast_mode: bool,
     tenant_scan_limit: int,
@@ -535,28 +643,41 @@ def scenario_draft(
 
     effective_max_results = int(max_results)
     effective_scan_limit = int(tenant_scan_limit)
+    effective_use_workspace_templates = bool(use_workspace_templates)
+    effective_workspace_template_limit = int(workspace_template_limit)
+    effective_template_match_limit = max(1, int(template_match_limit))
     if resolved_profile == "balanced":
         if _param_is_default(ctx, "max_results"):
             effective_max_results = 4
         if _param_is_default(ctx, "tenant_scan_limit"):
             effective_scan_limit = 30
+        if _param_is_default(ctx, "workspace_template_limit"):
+            effective_workspace_template_limit = 60
     elif resolved_profile == "fast":
         if _param_is_default(ctx, "max_results"):
             effective_max_results = 2
         if _param_is_default(ctx, "tenant_scan_limit"):
             effective_scan_limit = 0
+        if _param_is_default(ctx, "use_workspace_templates"):
+            effective_use_workspace_templates = False
+        if _param_is_default(ctx, "workspace_template_limit"):
+            effective_workspace_template_limit = 30
 
     profile_notes: list[str] = []
     if resolved_profile == "balanced":
         profile_notes.append("balanced profile: moderate research depth and tenant scan")
     if resolved_profile == "fast":
         profile_notes.append("fast profile: minimal research depth and cache-first tenant modules")
+    if effective_use_workspace_templates:
+        profile_notes.append("workspace templates enabled for draft hints")
 
     stage_timings: dict[str, float] = {}
     t0 = time.perf_counter()
 
     manual_connections = parse_connection_pairs(connection_pairs)
     auto_connections: dict[str, int] = {}
+    matched_workspace_templates: list[dict[str, object]] = []
+    template_source_path: str | None = None
     config: Config = ctx.obj["config"]
     with APIClient(config) as client:
         try:
@@ -564,12 +685,40 @@ def scenario_draft(
             auto_connections = team_connection_map(client, resolved_team_id)
         except Exception:
             auto_connections = {}
+        else:
+            if effective_use_workspace_templates:
+                try:
+                    template_payload = client.list_workspace_templates(
+                        team_id=resolved_team_id,
+                        organization_id=config.organization_id,
+                        limit=effective_workspace_template_limit,
+                        public_only=True,
+                    )
+                    template_source_path = template_payload.get("_sourcePath") if isinstance(template_payload, dict) else None
+                    templates = extract_templates(template_payload)
+                    matched_workspace_templates = search_templates(
+                        templates,
+                        query=goal,
+                        public_only=True,
+                        limit=effective_template_match_limit,
+                    )
+                except Exception:
+                    profile_notes.append("workspace templates unavailable in this workspace context")
     stage_timings["connections"] = round(time.perf_counter() - t0, 3)
 
     connections = {**auto_connections, **manual_connections}
 
     t1 = time.perf_counter()
     sources = research_goal(goal, max_results=effective_max_results)
+    if matched_workspace_templates:
+        template_sources = [
+            {
+                "title": f"Workspace template: {item.get('name', 'Template')}",
+                "url": str(item.get("url") or f"workspace-template://{item.get('id')}")
+            }
+            for item in matched_workspace_templates
+        ]
+        sources = template_sources + sources
     stage_timings["research"] = round(time.perf_counter() - t1, 3)
 
     t2 = time.perf_counter()
@@ -646,6 +795,8 @@ def scenario_draft(
                 "maxResults": effective_max_results,
                 "tenantScanLimit": effective_scan_limit,
                 "resolvedConnections": connections,
+                "workspaceTemplateMatches": matched_workspace_templates,
+                "workspaceTemplateSource": template_source_path,
                 "goalAppsFromDocs": docs_goal_apps,
                 "goalFeaturesFromDocs": docs_goal_features,
                 "seededNativeModules": seeded_modules,
@@ -669,6 +820,8 @@ def scenario_draft(
         console.print("[dim]Seeded native modules from tenant-known apps:[/dim]")
         for module_name in seeded_modules:
             console.print(f"[dim]- {module_name}[/dim]")
+    if matched_workspace_templates:
+        console.print(f"[dim]Workspace templates matched: {len(matched_workspace_templates)}[/dim]")
     if uncovered_docs_apps:
         console.print("[yellow]Goal includes documented apps without mapped native modules:[/yellow] " + ", ".join(uncovered_docs_apps))
         console.print("[dim]Run `boost scenario setup --app <app>` and ensure tenant-proven modules exist.[/dim]")
@@ -878,6 +1031,10 @@ def scenario_brainstorm(
 @click.option("--file", "file_path", required=True, type=click.Path(exists=True, path_type=Path))
 @click.option("--name", "override_name", help="Override scenario name")
 @click.option("--team-id", type=int, help="Target team ID")
+@click.option("--folder-id", type=int, help="Target folder ID")
+@click.option("--folder-name", help="Target folder name")
+@click.option("--create-folder", is_flag=True, help="Create folder when --folder-name does not exist")
+@click.option("--folder-parent-id", type=int, help="Optional parent folder ID when creating a folder")
 @click.option(
     "--schedule-type",
     type=click.Choice(["on-demand", "indefinitely", "once", "immediately"], case_sensitive=False),
@@ -911,6 +1068,10 @@ def scenario_deploy(
     file_path: Path,
     override_name: str | None,
     team_id: int | None,
+    folder_id: int | None,
+    folder_name: str | None,
+    create_folder: bool,
+    folder_parent_id: int | None,
     schedule_type: str,
     interval: int,
     inactive: bool,
@@ -1052,6 +1213,15 @@ def scenario_deploy(
             me = client.get_user()
             user = me.get("authUser") or me.get("user") or me
             resolved_team_id = resolve_team_id(client, config, team_id)
+            resolved_folder_id = _resolve_folder_id(
+                client,
+                resolved_team_id,
+                config.organization_id,
+                folder_id=folder_id,
+                folder_name=folder_name,
+                create_folder=create_folder,
+                parent_folder_id=folder_parent_id,
+            )
         except APIError as exc:
             if json_output:
                 emit_json(ok=False, error=f"Preflight API error: {exc}", meta={"command": "scenario deploy"})
@@ -1205,6 +1375,7 @@ def scenario_deploy(
                         "scanLimit": effective_scan_limit,
                         "user": user.get("email", "unknown"),
                         "teamId": resolved_team_id,
+                        "folderId": resolved_folder_id,
                         "scenarioName": scenario_name,
                         "scheduleType": schedule_type,
                         "requiredConnectionApps": required_apps,
@@ -1228,6 +1399,8 @@ def scenario_deploy(
             console.print(f"[dim]User: {user.get('email', 'unknown')}[/dim]")
             console.print(f"[dim]Team ID: {resolved_team_id}[/dim]")
             console.print(f"[dim]Scenario name: {scenario_name}[/dim]")
+            if resolved_folder_id is not None:
+                console.print(f"[dim]Folder ID: {resolved_folder_id}[/dim]")
             console.print(f"[dim]Schedule: {schedule_type}[/dim]")
             if mapping_fixes:
                 console.print(f"[dim]Field mapping fixes: {len(mapping_fixes)}[/dim]")
@@ -1246,6 +1419,7 @@ def scenario_deploy(
                 blueprint=blueprint,
                 scheduling=scheduling,
                 name=scenario_name,
+                folder_id=resolved_folder_id,
             )
             stage_timings["createScenario"] = round(time.perf_counter() - t_create, 3)
             created = result.get("scenario", result)
@@ -1301,6 +1475,7 @@ def scenario_deploy(
                         "id": created_id,
                         "name": scenario_name,
                         "teamId": resolved_team_id,
+                        "folderId": resolved_folder_id,
                         "active": not inactive,
                         "scheduleType": schedule_type,
                         "requiredConnectionApps": required_apps,
@@ -1324,6 +1499,8 @@ def scenario_deploy(
                 return
 
             console.print(f"[green]Scenario deployed: {scenario_name} ({created_id})[/green]")
+            if resolved_folder_id is not None:
+                console.print(f"[dim]Folder ID: {resolved_folder_id}[/dim]")
             console.print(f"[dim]Profile: {resolved_profile}[/dim]")
             for note in profile_notes:
                 console.print(f"[dim]{note}[/dim]")

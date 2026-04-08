@@ -176,7 +176,14 @@ class APIClient:
         blueprint = self.extract_blueprint(payload)
         return blueprint or payload
 
-    def create_scenario(self, team_id: int, blueprint: dict, scheduling: Optional[dict] = None, name: Optional[str] = None) -> dict:
+    def create_scenario(
+        self,
+        team_id: int,
+        blueprint: dict,
+        scheduling: Optional[dict] = None,
+        name: Optional[str] = None,
+        folder_id: Optional[int] = None,
+    ) -> dict:
         resolved_scheduling = scheduling or {"type": "on-demand"}
         payload = {
             "teamId": team_id,
@@ -185,7 +192,101 @@ class APIClient:
         }
         if name:
             payload["name"] = name
+        if folder_id is not None:
+            payload["folderId"] = int(folder_id)
         return self.post("/scenarios", json=payload)
+
+    def list_workspace_templates(
+        self,
+        team_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
+        limit: int = 50,
+        query: Optional[str] = None,
+        public_only: bool = False,
+    ) -> dict:
+        params: dict[str, Any] = {"pg[limit]": limit, "pg[offset]": 0}
+        if team_id:
+            params["teamId"] = team_id
+        elif organization_id:
+            params["organizationId"] = organization_id
+        if query:
+            params["q"] = query
+        if public_only:
+            params["public"] = True
+
+        endpoints = ("/templates", "/scenario-templates", "/scenarios/templates")
+        for endpoint in endpoints:
+            try:
+                payload = self.get(endpoint, params=params)
+                if isinstance(payload, dict):
+                    result = dict(payload)
+                    result["_sourcePath"] = endpoint
+                    return result
+                return {"templates": payload, "_sourcePath": endpoint}
+            except APIError as exc:
+                if exc.status_code in {404, 405}:
+                    continue
+                raise
+
+        return {"templates": [], "_sourcePath": None}
+
+    def list_scenario_folders(
+        self,
+        team_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
+        limit: int = 200,
+    ) -> dict:
+        params: dict[str, Any] = {"pg[limit]": limit, "pg[offset]": 0}
+        if team_id:
+            params["teamId"] = team_id
+        elif organization_id:
+            params["organizationId"] = organization_id
+
+        endpoints = ("/scenario-folders", "/folders", "/scenarios/folders")
+        for endpoint in endpoints:
+            try:
+                payload = self.get(endpoint, params=params)
+                if isinstance(payload, dict):
+                    result = dict(payload)
+                    result["_sourcePath"] = endpoint
+                    return result
+                return {"folders": payload, "_sourcePath": endpoint}
+            except APIError as exc:
+                if exc.status_code in {404, 405}:
+                    continue
+                raise
+
+        return {"folders": [], "_sourcePath": None}
+
+    def create_scenario_folder(
+        self,
+        name: str,
+        team_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
+        parent_id: Optional[int] = None,
+    ) -> dict:
+        payload: dict[str, Any] = {"name": name}
+        if team_id is not None:
+            payload["teamId"] = team_id
+        if organization_id is not None:
+            payload["organizationId"] = organization_id
+        if parent_id is not None:
+            payload["parentId"] = parent_id
+
+        endpoints = ("/scenario-folders", "/folders", "/scenarios/folders")
+        last_error: APIError | None = None
+        for endpoint in endpoints:
+            try:
+                return self.post(endpoint, json=payload)
+            except APIError as exc:
+                if exc.status_code in {404, 405}:
+                    last_error = exc
+                    continue
+                raise
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("No folder endpoint available")
 
     def update_scenario(self, scenario_id: int, updates: dict) -> dict:
         return self.patch(f"/scenarios/{scenario_id}", json=updates)

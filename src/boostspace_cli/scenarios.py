@@ -10,6 +10,7 @@ from .config import Config
 from .console import console
 from .jsonio import emit_json
 from .scenario_lookup import resolve_scenario_id
+from .workspace_assets import extract_folders, find_folder_by_name
 
 
 @click.group()
@@ -28,21 +29,90 @@ def _normalize_schedule_type(value: str) -> str:
     return normalized
 
 
+def _extract_scenario_folder_id(scenario: dict) -> int | None:
+    folder_id = scenario.get("folderId")
+    if isinstance(folder_id, int):
+        return folder_id
+    folder = scenario.get("folder")
+    if isinstance(folder, dict):
+        nested_id = folder.get("id")
+        if isinstance(nested_id, int):
+            return nested_id
+    return None
+
+
+def _resolve_folder_id(
+    client: APIClient,
+    team_id: int | None,
+    organization_id: int | None,
+    folder_id: int | None,
+    folder_name: str | None,
+    create_folder: bool,
+    parent_folder_id: int | None,
+) -> int | None:
+    if folder_id is not None:
+        return int(folder_id)
+    if not folder_name:
+        return None
+
+    payload = client.list_scenario_folders(team_id=team_id, organization_id=organization_id, limit=300)
+    folders = extract_folders(payload)
+    match, candidates = find_folder_by_name(folders, folder_name)
+    if match is not None:
+        resolved = match.get("id")
+        if isinstance(resolved, int):
+            return resolved
+
+    if len(candidates) > 1:
+        names = ", ".join(str(item.get("name", "")) for item in candidates[:8])
+        raise click.ClickException(f"Multiple folders match '{folder_name}': {names}")
+
+    if create_folder:
+        created = client.create_scenario_folder(
+            name=folder_name,
+            team_id=team_id,
+            organization_id=organization_id,
+            parent_id=parent_folder_id,
+        )
+        created_folder = created.get("folder", created)
+        created_id = created_folder.get("id") if isinstance(created_folder, dict) else None
+        if isinstance(created_id, int):
+            return created_id
+        raise click.ClickException("Folder creation did not return a valid folder ID")
+
+    raise click.ClickException(
+        f"Folder '{folder_name}' not found. Use --create-folder to create it or pass --folder-id explicitly."
+    )
+
+
 @scenarios.command("list")
 @click.option("--team-id", type=int, help="Team ID (overrides config)")
 @click.option("--limit", type=int, default=50, help="Max results")
+@click.option("--folder-id", type=int, help="Filter scenarios by folder ID")
+@click.option("--folder-name", help="Filter scenarios by folder name")
 @click.option("--with-ids", is_flag=True, help="Include IDs with names (legacy; default output already includes IDs)")
 @click.option("--table", is_flag=True, help="Show rich table output")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.option("--plain", is_flag=True, hidden=True, help="Legacy alias for --with-ids")
 @click.pass_context
-def list_scenarios(ctx, team_id, limit, with_ids, table, json_output, plain):
+def list_scenarios(ctx, team_id, limit, folder_id, folder_name, with_ids, table, json_output, plain):
     """List all scenarios."""
     config: Config = ctx.obj["config"]
     tid = team_id or config.team_id
     oid = config.organization_id
+    resolved_folder_id = folder_id
     with APIClient(config) as client:
         try:
+            if resolved_folder_id is None and folder_name:
+                resolved_folder_id = _resolve_folder_id(
+                    client,
+                    tid,
+                    oid,
+                    folder_id=None,
+                    folder_name=folder_name,
+                    create_folder=False,
+                    parent_folder_id=None,
+                )
             result = client.list_scenarios(team_id=tid, organization_id=oid, limit=limit)
         except APIError as e:
             if json_output:
@@ -50,8 +120,16 @@ def list_scenarios(ctx, team_id, limit, with_ids, table, json_output, plain):
                 raise SystemExit(1)
             console.print(f"[red]Error: {e}[/red]")
             raise SystemExit(1)
+        except click.ClickException as e:
+            if json_output:
+                emit_json(ok=False, error=str(e), meta={"command": "scenarios list", "limit": limit})
+                raise SystemExit(1)
+            console.print(f"[red]Error: {e}[/red]")
+            raise SystemExit(1)
 
     scenarios_list = result.get("scenarios", [])
+    if resolved_folder_id is not None:
+        scenarios_list = [s for s in scenarios_list if _extract_scenario_folder_id(s) == int(resolved_folder_id)]
     if not scenarios_list:
         if json_output:
             emit_json(data=[], meta={"command": "scenarios list", "limit": limit})
@@ -75,10 +153,15 @@ def list_scenarios(ctx, team_id, limit, with_ids, table, json_output, plain):
                 "active": bool(s.get("isActive")),
                 "dlq": int(s.get("dlqCount", 0) or 0),
                 "nextRun": s.get("nextExec"),
+                "folderId": _extract_scenario_folder_id(s),
+                "folderName": (s.get("folder", {}).get("name") if isinstance(s.get("folder"), dict) else None),
             }
             for s in scenarios_list
         ]
-        emit_json(data=payload, meta={"command": "scenarios list", "limit": limit})
+        emit_json(
+            data=payload,
+            meta={"command": "scenarios list", "limit": limit, "folderId": resolved_folder_id, "folderName": folder_name},
+        )
         return
 
     if not table:
@@ -95,6 +178,7 @@ def list_scenarios(ctx, team_id, limit, with_ids, table, json_output, plain):
     table.add_column("Name", style="white")
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Status", style="green")
+    table.add_column("Folder", style="magenta")
     table.add_column("DLQ", style="red", no_wrap=True)
     table.add_column("Next Run", style="dim")
 
@@ -102,7 +186,10 @@ def list_scenarios(ctx, team_id, limit, with_ids, table, json_output, plain):
         status = "[green]active[/green]" if s.get("isActive") else "[yellow]inactive[/yellow]"
         dlq = f"[red]{s.get('dlqCount', 0)}[/red]" if s.get("dlqCount", 0) > 0 else "0"
         next_exec = s.get("nextExec", "—")
-        table.add_row(s.get("name", ""), str(s["id"]), status, dlq, str(next_exec)[:19])
+        folder_name_value = ""
+        if isinstance(s.get("folder"), dict):
+            folder_name_value = str(s["folder"].get("name") or "")
+        table.add_row(s.get("name", ""), str(s["id"]), status, folder_name_value or "-", dlq, str(next_exec)[:19])
 
     console.print(table)
 
@@ -147,6 +234,8 @@ def get_scenario(ctx, scenario_id, scenario_name, blueprint, json_output):
             "name": s.get("name"),
             "active": s.get("isActive", s.get("active")),
             "teamId": s.get("teamId"),
+            "folderId": _extract_scenario_folder_id(s),
+            "folderName": (s.get("folder", {}).get("name") if isinstance(s.get("folder"), dict) else None),
             "created": s.get("dateCreated", s.get("created")),
             "updated": s.get("lastEdit", s.get("updated")),
         }
@@ -163,6 +252,7 @@ def get_scenario(ctx, scenario_id, scenario_name, blueprint, json_output):
     console.print(f"[bold]Name:[/bold] {s.get('name')}")
     console.print(f"[bold]Active:[/bold] {s.get('isActive', s.get('active'))}")
     console.print(f"[bold]Team:[/bold] {s.get('teamId')}")
+    console.print(f"[bold]Folder:[/bold] {s.get('folder', {}).get('name') if isinstance(s.get('folder'), dict) else '—'}")
     console.print(f"[bold]Created:[/bold] {s.get('dateCreated', s.get('created', '—'))}")
     console.print(f"[bold]Updated:[/bold] {s.get('lastEdit', s.get('updated', '—'))}")
 
@@ -185,12 +275,29 @@ def get_scenario(ctx, scenario_id, scenario_name, blueprint, json_output):
 @click.option("--name", required=True, help="Scenario name")
 @click.option("--blueprint-file", type=click.Path(exists=True), help="Path to blueprint JSON file")
 @click.option("--team-id", type=int, help="Team ID (overrides config)")
+@click.option("--folder-id", type=int, help="Target folder ID")
+@click.option("--folder-name", help="Target folder name")
+@click.option("--create-folder", is_flag=True, help="Create folder when --folder-name does not exist")
+@click.option("--folder-parent-id", type=int, help="Optional parent folder ID when creating a folder")
 @click.option("--schedule-type", type=click.Choice(["on-demand", "indefinitely", "once", "immediately"], case_sensitive=False), default="on-demand")
 @click.option("--interval", type=int, default=3600, help="Schedule interval in seconds (for 'indefinitely')")
 @click.option("--inactive", is_flag=True, help="Create in inactive state")
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 @click.pass_context
-def create_scenario(ctx, name, blueprint_file, team_id, schedule_type, interval, inactive, json_output):
+def create_scenario(
+    ctx,
+    name,
+    blueprint_file,
+    team_id,
+    folder_id,
+    folder_name,
+    create_folder,
+    folder_parent_id,
+    schedule_type,
+    interval,
+    inactive,
+    json_output,
+):
     """Create a new scenario."""
     config: Config = ctx.obj["config"]
     tid = team_id or config.team_id
@@ -220,9 +327,25 @@ def create_scenario(ctx, name, blueprint_file, team_id, schedule_type, interval,
     if schedule_type == "indefinitely":
         scheduling["interval"] = interval
 
+    resolved_folder_id = folder_id
     with APIClient(config) as client:
         try:
-            result = client.create_scenario(team_id=tid, blueprint=blueprint, scheduling=scheduling, name=name)
+            resolved_folder_id = _resolve_folder_id(
+                client,
+                tid,
+                config.organization_id,
+                folder_id=folder_id,
+                folder_name=folder_name,
+                create_folder=create_folder,
+                parent_folder_id=folder_parent_id,
+            )
+            result = client.create_scenario(
+                team_id=tid,
+                blueprint=blueprint,
+                scheduling=scheduling,
+                name=name,
+                folder_id=resolved_folder_id,
+            )
             scenario = result.get("scenario", result)
             if inactive:
                 client.stop_scenario(scenario["id"])
@@ -232,6 +355,7 @@ def create_scenario(ctx, name, blueprint_file, team_id, schedule_type, interval,
                     "id": scenario.get("id"),
                     "name": name,
                     "teamId": tid,
+                    "folderId": resolved_folder_id,
                     "scheduleType": schedule_type,
                     "interval": scheduling.get("interval"),
                     "active": not inactive,
@@ -240,9 +364,17 @@ def create_scenario(ctx, name, blueprint_file, team_id, schedule_type, interval,
                 return
 
             console.print(f"[green]Scenario created: ID {scenario.get('id')} — {name}[/green]")
+            if resolved_folder_id is not None:
+                console.print(f"[dim]Folder ID: {resolved_folder_id}[/dim]")
             if inactive:
                 console.print("[yellow]Scenario set to inactive[/yellow]")
         except APIError as e:
+            if json_output:
+                emit_json(ok=False, error=str(e), meta={"command": "scenarios create"})
+                raise SystemExit(1)
+            console.print(f"[red]Error: {e}[/red]")
+            raise SystemExit(1)
+        except click.ClickException as e:
             if json_output:
                 emit_json(ok=False, error=str(e), meta={"command": "scenarios create"})
                 raise SystemExit(1)
@@ -661,3 +793,87 @@ def top_issues(ctx, team_id, limit, include_inactive, json_output):
         )
 
     console.print(table)
+
+
+@scenarios.command("folders")
+@click.option("--team-id", type=int, help="Team ID (overrides config)")
+@click.option("--limit", type=int, default=200, show_default=True)
+@click.option("--query", help="Filter folders by name")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def list_folders(ctx, team_id, limit, query, json_output):
+    """List scenario folders available in workspace."""
+    config: Config = ctx.obj["config"]
+    tid = team_id or config.team_id
+    oid = config.organization_id
+
+    with APIClient(config) as client:
+        try:
+            payload = client.list_scenario_folders(team_id=tid, organization_id=oid, limit=limit)
+        except APIError as e:
+            if json_output:
+                emit_json(ok=False, error=str(e), meta={"command": "scenarios folders"})
+                raise SystemExit(1)
+            console.print(f"[red]Error: {e}[/red]")
+            raise SystemExit(1)
+
+    folders = extract_folders(payload)
+    if query:
+        q = str(query).strip().casefold()
+        folders = [row for row in folders if q in str(row.get("name", "")).casefold()]
+
+    if json_output:
+        emit_json(
+            data={"items": folders, "sourcePath": payload.get("_sourcePath") if isinstance(payload, dict) else None},
+            meta={"command": "scenarios folders", "limit": limit, "query": query},
+        )
+        return
+
+    if not folders:
+        console.print("[yellow]No folders found.[/yellow]")
+        return
+
+    table = Table(title=f"Scenario Folders ({len(folders)})")
+    table.add_column("Name", style="white")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Parent", style="magenta", no_wrap=True)
+    for row in folders:
+        table.add_row(str(row.get("name", "")), str(row.get("id", "")), str(row.get("parentId", "-")))
+    console.print(table)
+
+
+@scenarios.command("folder-create")
+@click.option("--name", required=True, help="Folder name")
+@click.option("--team-id", type=int, help="Team ID (overrides config)")
+@click.option("--parent-id", type=int, help="Parent folder ID")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def create_folder(ctx, name, team_id, parent_id, json_output):
+    """Create a scenario folder."""
+    config: Config = ctx.obj["config"]
+    tid = team_id or config.team_id
+    oid = config.organization_id
+
+    with APIClient(config) as client:
+        try:
+            result = client.create_scenario_folder(name=name, team_id=tid, organization_id=oid, parent_id=parent_id)
+        except APIError as e:
+            if json_output:
+                emit_json(ok=False, error=str(e), meta={"command": "scenarios folder-create"})
+                raise SystemExit(1)
+            console.print(f"[red]Error: {e}[/red]")
+            raise SystemExit(1)
+
+    folder = result.get("folder", result) if isinstance(result, dict) else {}
+    payload = {
+        "id": folder.get("id") if isinstance(folder, dict) else None,
+        "name": folder.get("name", name) if isinstance(folder, dict) else name,
+        "teamId": tid,
+        "parentId": parent_id,
+    }
+
+    if json_output:
+        emit_json(data=payload, meta={"command": "scenarios folder-create"})
+        return
+
+    console.print(f"[green]Folder created:[/green] {payload['name']} ({payload['id']})")
