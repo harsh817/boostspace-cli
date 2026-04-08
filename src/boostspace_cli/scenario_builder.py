@@ -46,6 +46,7 @@ from .scenario_builder_helpers import (
     team_connection_map,
     tenant_known_modules,
 )
+from .scenario_swarm import run_swarm
 from .workspace_assets import extract_folders, extract_templates, find_folder_by_name, search_templates
 
 TENANT_CACHE_TTL_SECONDS = 1800
@@ -121,6 +122,96 @@ def scenario_catalog(refresh: bool, json_output: bool) -> None:
         console.print(app)
     if features:
         console.print(f"[green]Documented platform features: {len(features)}[/green]")
+
+
+@scenario_builder.command("swarm")
+@click.option("--mode", type=click.Choice(["build", "debug"], case_sensitive=False), default="build", show_default=True)
+@click.option("--goal", help="Build/debug goal in plain language")
+@click.option("--scenario-id", type=int, help="Scenario ID for debug mode")
+@click.option("--name", "scenario_name", help="Scenario name for debug mode")
+@click.option("--team-id", type=int, help="Team ID override")
+@click.option("--folder-name", help="Optional target folder hint for build mode")
+@click.option("--parallelism", type=int, default=5, show_default=True, help="How many agents run concurrently")
+@click.option("--cache-ttl", type=int, default=TENANT_CACHE_TTL_SECONDS, show_default=True, help="Tenant module cache TTL in seconds")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def scenario_swarm_cmd(
+    ctx: click.Context,
+    mode: str,
+    goal: str | None,
+    scenario_id: int | None,
+    scenario_name: str | None,
+    team_id: int | None,
+    folder_name: str | None,
+    parallelism: int,
+    cache_ttl: int,
+    json_output: bool,
+) -> None:
+    """Split build/debug workflow into parallel specialized sub-agents."""
+    config: Config = ctx.obj["config"]
+    selected_team_id = team_id or config.team_id
+
+    try:
+        result = run_swarm(
+            mode=str(mode).casefold(),
+            config=config,
+            team_id=selected_team_id,
+            goal=goal,
+            scenario_id=scenario_id,
+            scenario_name=scenario_name,
+            folder_name=folder_name,
+            parallelism=parallelism,
+            cache_ttl=cache_ttl,
+        )
+    except ValueError as exc:
+        if json_output:
+            emit_json(ok=False, error=str(exc), meta={"command": "scenario swarm"})
+            raise SystemExit(1)
+        raise click.ClickException(str(exc))
+    except APIError as exc:
+        if json_output:
+            emit_json(ok=False, error=str(exc), meta={"command": "scenario swarm"})
+            raise SystemExit(1)
+        raise click.ClickException(str(exc))
+
+    if json_output:
+        emit_json(
+            data=result,
+            meta={"command": "scenario swarm", "mode": mode, "parallelism": parallelism},
+        )
+        if result.get("failedAgents"):
+            raise SystemExit(1)
+        return
+
+    console.print(f"[green]Swarm complete[/green] mode={result['mode']} parallelism={result['parallelism']}")
+    console.print(f"[dim]Agents ok: {result['okAgents']} | failed: {result['failedAgents']} | duration: {result['durationSeconds']}s[/dim]")
+
+    table = Table(title="Sub-Agent Results")
+    table.add_column("Agent", style="white")
+    table.add_column("Status", style="green")
+    table.add_column("Duration (s)", style="cyan", no_wrap=True)
+    table.add_column("Details", style="dim")
+    for row in result.get("agents", []):
+        ok = bool(row.get("ok"))
+        status = "ok" if ok else "failed"
+        details = ""
+        if ok:
+            data = row.get("data")
+            if isinstance(data, dict):
+                keys = ", ".join(list(data.keys())[:4])
+                details = keys
+        else:
+            details = str(row.get("error", ""))
+        table.add_row(str(row.get("agent", "")), status, str(row.get("durationSeconds", "-")), details)
+    console.print(table)
+
+    if result.get("mode") == "build":
+        console.print("[dim]Next: boost scenario draft --goal \"...\" --use-workspace-templates --fast[/dim]")
+    else:
+        console.print("[dim]Next: boost executions history --name \"...\" --json[/dim]")
+
+    if result.get("failedAgents"):
+        raise SystemExit(1)
 
 
 @scenario_builder.command("templates")

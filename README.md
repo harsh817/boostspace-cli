@@ -95,6 +95,10 @@ boost scenario brainstorm --goal "Capture lead webhook and push to Google Sheets
 # 1) Research latest patterns from the web
 boost scenario research --goal "Capture lead webhook and push to Google Sheets"
 
+# 1b) Run parallel sub-agents for planning/debug
+boost scenario swarm --mode build --goal "Capture lead webhook and push to Google Sheets"
+boost scenario swarm --mode debug --name "Lead Capture - Webhook Scaffold" --json
+
 # 2) Generate a draft blueprint from spec (or use --goal directly)
 boost scenario draft --spec spec-capture-lead-webhook-and-push-to-google-sheets.json
 
