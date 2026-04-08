@@ -30,11 +30,13 @@ MODULE_COMPATIBILITY_RULES: dict[str, dict[str, str]] = {
 }
 
 INTENT_PATTERNS: dict[str, tuple[str, ...]] = {
+    "anthropic": ("anthropic", "claude", "claude ai", "anthropic claude"),
     "openai": ("openai", "gpt", "ai post", "ai-written", "ai written", "generate post", "caption", "rewrite"),
     "google_sheets": ("sheet", "spreadsheet", "google sheet", "gsheet"),
     "hubspot": ("hubspot", "crm", "create contact", "sync contact"),
     "slack": ("slack", "notify", "notification", "send message", "channel"),
     "instagram": ("instagram", "ig", "reel", "post to instagram"),
+    "linkedin": ("linkedin", "linkedin post", "post on linkedin", "linkedin profile"),
     "http": ("http", "api", "webhook forward", "post to api"),
 }
 
@@ -306,52 +308,103 @@ def guess_modules(
         ]
     module_id = len(flow) + 1
 
-    # --- OpenAI / AI text generation ---
-    if _has_intent(g, "openai") or _has_intent(g, "instagram"):
-        conn_id = conns.get("openai-gpt-3")
-        params: dict[str, Any] = {}
-        if conn_id:
-            params["__IMTCONN__"] = conn_id
-        flow.append(
-            {
-                "id": module_id,
-                "module": "openai-gpt-3:CreateCompletion",
-                "version": 1,
-                "parameters": params,
-                "mapper": {
-                    "model": "gpt-3.5-turbo-instruct",
-                    "prompt": "Write an engaging social media post for today. Include emojis and 5-8 relevant hashtags at the end. Keep it under 200 words.",
-                    "max_tokens": 300,
-                    "temperature": 0.8,
-                },
-            }
-        )
+    # --- AI text generation (Anthropic preferred; OpenAI as fallback) ---
+    needs_ai = _has_intent(g, "anthropic") or _has_intent(g, "openai") or _has_intent(g, "instagram") or _has_intent(g, "linkedin")
+    if needs_ai:
+        use_anthropic = _has_intent(g, "anthropic") or not _has_intent(g, "openai")
+        if use_anthropic:
+            conn_id = conns.get("anthropic-claude")
+            params: dict[str, Any] = {}
+            if conn_id:
+                params["__IMTCONN__"] = conn_id
+            flow.append(
+                {
+                    "id": module_id,
+                    "module": "anthropic-claude:createAMessage",
+                    "version": 1,
+                    "parameters": params,
+                    "mapper": {
+                        "model": "claude-opus-4-5",
+                        "max_tokens": 1024,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": "Write an engaging social media post for today. Include relevant hashtags. Keep it under 200 words.",
+                            }
+                        ],
+                    },
+                }
+            )
+        else:
+            conn_id = conns.get("openai-gpt-3")
+            params = {}
+            if conn_id:
+                params["__IMTCONN__"] = conn_id
+            flow.append(
+                {
+                    "id": module_id,
+                    "module": "openai-gpt-3:CreateCompletion",
+                    "version": 1,
+                    "parameters": params,
+                    "mapper": {
+                        "model": "gpt-3.5-turbo-instruct",
+                        "prompt": "Write an engaging social media post for today. Include emojis and 5-8 relevant hashtags at the end. Keep it under 200 words.",
+                        "max_tokens": 300,
+                        "temperature": 0.8,
+                    },
+                }
+            )
         ai_module_id = module_id
         module_id += 1
     else:
         ai_module_id = None
 
     # --- Google Sheets ---
-    if _has_intent(g, "google_sheets"):
+    if _has_intent(g, "google_sheets") or _has_intent(g, "linkedin") or _has_intent(g, "instagram"):
         conn_id = conns.get("google-sheets")
-        params = {
-            "spreadsheetId": "{{spreadsheet_id}}",
-            "sheetName": "{{sheet_name}}",
-        }
-        if conn_id:
-            params["__IMTCONN__"] = conn_id
-        else:
-            params["__IMTCONN__"] = "{{connection_google_sheets}}"
-        flow.append(
-            {
-                "id": module_id,
-                "module": "google-sheets:addRow",
-                "version": 1,
-                "parameters": params,
-                "mapper": {"row": "{{mapped_row_fields}}"},
-            }
+        # For scheduled/trigger scenarios reading topics from a sheet, use watchRows.
+        # For webhook-driven scenarios writing results, use addRow.
+        reading_from_sheet = trigger == "schedule" or any(
+            kw in g for kw in ("read from", "read topic", "fetch from", "get from", "from sheet", "from spreadsheet")
         )
-        module_id += 1
+        if reading_from_sheet:
+            params = {
+                "__IMTCONN__": conn_id if conn_id else "{{connection_google_sheets}}",
+            }
+            flow.insert(
+                0,
+                {
+                    "id": module_id,
+                    "module": "google-sheets:watchRows",
+                    "version": 2,
+                    "parameters": params,
+                    "mapper": {},
+                },
+            )
+            # Re-assign IDs so watchRows is always first
+            for i, mod in enumerate(flow):
+                if isinstance(mod, dict):
+                    mod["id"] = i + 1
+            module_id = len(flow) + 1
+        else:
+            params = {
+                "spreadsheetId": "{{spreadsheet_id}}",
+                "sheetName": "{{sheet_name}}",
+            }
+            if conn_id:
+                params["__IMTCONN__"] = conn_id
+            else:
+                params["__IMTCONN__"] = "{{connection_google_sheets}}"
+            flow.append(
+                {
+                    "id": module_id,
+                    "module": "google-sheets:addRow",
+                    "version": 1,
+                    "parameters": params,
+                    "mapper": {"row": "{{mapped_row_fields}}"},
+                }
+            )
+            module_id += 1
 
     # --- HubSpot / CRM ---
     if _has_intent(g, "hubspot"):
@@ -391,41 +444,49 @@ def guess_modules(
         )
         module_id += 1
 
-    # --- Instagram (via Graph API — no native module in Make/Boost.space) ---
-    if _has_intent(g, "instagram"):
-        caption_ref = f"{{{{{ai_module_id}.choices[0].text}}}}" if ai_module_id else "{{caption}}"
-        # Step 1: create media container
+    # --- LinkedIn (native module) ---
+    if _has_intent(g, "linkedin"):
+        conn_id = conns.get("linkedin")
+        params = {}
+        if conn_id:
+            params["__IMTCONN__"] = conn_id
+        else:
+            params["__IMTCONN__"] = "{{connection_linkedin}}"
+        ai_output_ref = "{{" + str(ai_module_id) + ".content[0].text}}" if ai_module_id else "{{post_content}}"
         flow.append(
             {
                 "id": module_id,
-                "module": "http:ActionSendData",
-                "version": 3,
-                "parameters": {"handleErrors": False, "useNewZLibDeCompress": True},
+                "module": "linkedin:CreatePost",
+                "version": 2,
+                "parameters": params,
                 "mapper": {
-                    "url": "https://graph.facebook.com/v18.0/{{IG_USER_ID}}/media",
-                    "method": "post",
-                    "headers": [{"name": "Content-Type", "value": "application/json"}],
-                    "body": f'{{"image_url":"{{{{IMAGE_URL}}}}","caption":"{caption_ref}","access_token":"{{{{IG_ACCESS_TOKEN}}}}"}}'
+                    "content": ai_output_ref,
+                    "visibility": "PUBLIC",
+                    "feedDistribution": "MAIN_FEED",
+                    "isReshareDisabledByAuthor": False,
                 },
             }
         )
-        container_module_id = module_id
         module_id += 1
-        # Step 2: publish container
-        publish_body = '{{"creation_id":"{cid}","access_token":"{{{{IG_ACCESS_TOKEN}}}}"}}'.format(
-            cid="{{" + str(container_module_id) + ".data.id}}"
-        )
+
+    # --- Instagram (native instagram-business module) ---
+    if _has_intent(g, "instagram"):
+        conn_id = conns.get("instagram-business")
+        params = {}
+        if conn_id:
+            params["__IMTCONN__"] = conn_id
+        else:
+            params["__IMTCONN__"] = "{{connection_instagram_business}}"
+        caption_ref = "{{" + str(ai_module_id) + ".content[0].text}}" if ai_module_id else "{{caption}}"
         flow.append(
             {
                 "id": module_id,
-                "module": "http:ActionSendData",
-                "version": 3,
-                "parameters": {"handleErrors": False, "useNewZLibDeCompress": True},
+                "module": "instagram-business:createAPhotoPost",
+                "version": 1,
+                "parameters": params,
                 "mapper": {
-                    "url": "https://graph.facebook.com/v18.0/{{IG_USER_ID}}/media_publish",
-                    "method": "post",
-                    "headers": [{"name": "Content-Type", "value": "application/json"}],
-                    "body": publish_body,
+                    "imageUrl": "{{IMAGE_URL}}",
+                    "caption": caption_ref,
                 },
             }
         )

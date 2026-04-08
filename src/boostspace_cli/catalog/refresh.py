@@ -1,4 +1,4 @@
-"""Refresh offline catalog from @make-org/apps package."""
+"""Refresh offline catalog from Make.com integration page snapshots or @make-org/apps npm package."""
 
 from __future__ import annotations
 
@@ -8,16 +8,20 @@ import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from .builders.make_apps_npm import build_registry_from_extracted_package
+from .builders.make_apps_web import build_registry_from_web_snapshot
 from .store import CACHE_REGISTRY_PATH, load_cached_registry, save_cached_registry, validate_registry
+
+CatalogSource = Literal["web", "npm"]
+DEFAULT_SOURCE: CatalogSource = "web"
 
 
 def _run_npm_pack(workdir: Path, package_name: str) -> tuple[Path, str]:
     npm_bin = shutil.which("npm")
     if npm_bin is None:
-        raise RuntimeError("npm not found. Install Node.js/npm to run `boost catalog refresh`.")
+        raise RuntimeError("npm not found. Install Node.js/npm to use --source npm.")
 
     process = subprocess.run(
         [npm_bin, "pack", package_name, "--json"],
@@ -57,20 +61,7 @@ def _run_npm_pack(workdir: Path, package_name: str) -> tuple[Path, str]:
     return package_file, package_version
 
 
-def refresh_catalog(force: bool = False, package_name: str = "@make-org/apps") -> dict[str, Any]:
-    if not force:
-        cached = load_cached_registry()
-        if cached is not None:
-            meta = cached.get("meta", {}) if isinstance(cached, dict) else {}
-            return {
-                "cachePath": str(CACHE_REGISTRY_PATH),
-                "package": package_name,
-                "packageVersion": meta.get("packageVersion", "unknown"),
-                "moduleCount": meta.get("moduleCount", 0),
-                "appCount": meta.get("appCount", 0),
-                "reused": True,
-            }
-
+def _build_from_npm(package_name: str) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="boost-catalog-") as tmp:
         temp_root = Path(tmp)
         tgz_path, package_version = _run_npm_pack(temp_root, package_name=package_name)
@@ -86,16 +77,51 @@ def refresh_catalog(force: bool = False, package_name: str = "@make-org/apps") -
             if isinstance(meta, dict):
                 meta["packageVersion"] = package_version
 
-        valid, errors = validate_registry(registry)
-        if not valid:
-            raise RuntimeError("Catalog build produced invalid registry: " + "; ".join(errors[:5]))
+    return registry
 
-        cache_path = save_cached_registry(registry)
-        meta = registry.get("meta", {}) if isinstance(registry, dict) else {}
+
+def refresh_catalog(
+    force: bool = False,
+    source: CatalogSource = DEFAULT_SOURCE,
+    package_name: str = "@make-org/apps",
+) -> dict[str, Any]:
+    """Refresh the offline module catalog.
+
+    Args:
+        force: Skip cache and rebuild even if a cached registry exists.
+        source: ``"web"`` uses the bundled Make.com integration page snapshot
+                (no network required, always works). ``"npm"`` fetches the
+                ``@make-org/apps`` npm package (requires Node.js, may fail).
+        package_name: npm package name, only used when *source* is ``"npm"``.
+    """
+    if not force:
+        cached = load_cached_registry()
+        if cached is not None:
+            meta = cached.get("meta", {}) if isinstance(cached, dict) else {}
+            return {
+                "cachePath": str(CACHE_REGISTRY_PATH),
+                "source": meta.get("source", "cache"),
+                "packageVersion": meta.get("packageVersion", "unknown"),
+                "moduleCount": meta.get("moduleCount", 0),
+                "appCount": meta.get("appCount", 0),
+                "reused": True,
+            }
+
+    if source == "npm":
+        registry = _build_from_npm(package_name)
+    else:
+        registry = build_registry_from_web_snapshot()
+
+    valid, errors = validate_registry(registry)
+    if not valid:
+        raise RuntimeError("Catalog build produced invalid registry: " + "; ".join(errors[:5]))
+
+    cache_path = save_cached_registry(registry)
+    meta = registry.get("meta", {}) if isinstance(registry, dict) else {}
 
     return {
         "cachePath": str(cache_path),
-        "package": package_name,
+        "source": meta.get("source", source),
         "packageVersion": meta.get("packageVersion", "unknown"),
         "moduleCount": meta.get("moduleCount", 0),
         "appCount": meta.get("appCount", 0),

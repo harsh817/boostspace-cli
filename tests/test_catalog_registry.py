@@ -26,7 +26,7 @@ def test_catalog_search_finds_instagram_module():
     registry, _, _ = load_registry_with_source()
     rows = search_modules(registry, query="instagram", limit=10)
     ids = {row.get("id") for row in rows}
-    assert "instagram-business:CreatePostPhoto" in ids
+    assert "instagram-business:createAPhotoPost" in ids
 
 
 def test_catalog_module_cli_json_contract():
