@@ -11,6 +11,7 @@ import click
 from rich.table import Table
 
 from .client import APIClient, APIError
+from .catalog.store import known_module_ids
 from .config import Config
 from .console import console
 from .docs_catalog import load_documented_app_slugs, load_documented_features, match_goal_apps
@@ -742,6 +743,7 @@ def scenario_brainstorm(
 @click.option("--repair", is_flag=True, help="Auto-repair draft in-memory before deploy")
 @click.option("--guard-compat/--no-guard-compat", default=True, show_default=True, help="Block deploy when modules are not proven in tenant")
 @click.option("--allow-http-fallback", is_flag=True, help="Allow HTTP modules when no native module exists")
+@click.option("--allow-unknown-modules", is_flag=True, help="Allow modules missing from offline catalog")
 @click.option("--credential", "credential_pairs", multiple=True, metavar="KEY=VALUE", help="Credential value to inject into placeholders")
 @click.option("--credential-file", type=click.Path(exists=True, path_type=Path), help="JSON file with credential key/value pairs")
 @click.option("--sample-file", type=click.Path(exists=True, path_type=Path), help="Sample JSON payload for field mapping + verification run")
@@ -763,6 +765,7 @@ def scenario_deploy(
     repair: bool,
     guard_compat: bool,
     allow_http_fallback: bool,
+    allow_unknown_modules: bool,
     credential_pairs: tuple[str, ...],
     credential_file: Path | None,
     sample_file: Path | None,
@@ -918,13 +921,15 @@ def scenario_deploy(
                 config.organization_id,
                 scan_limit=scan_limit,
             )
+            catalog_modules = known_module_ids()
             blueprint, replacements = align_modules_to_known(blueprint, known_modules)
             if replacements and not json_output:
                 console.print("[dim]Aligned modules to tenant-known variants:[/dim]")
                 for replacement in replacements:
                     console.print(f"[dim]- {replacement}[/dim]")
             blueprint_modules = module_names_from_blueprint(blueprint)
-            unknown_modules = sorted(module for module in blueprint_modules if module not in known_modules)
+            unknown_modules = sorted(module for module in blueprint_modules if module not in catalog_modules)
+            unproven_tenant_modules = sorted(module for module in blueprint_modules if module not in known_modules and module in catalog_modules)
 
             blocked_modules = []
             for module in blueprint_modules:
@@ -948,20 +953,32 @@ def scenario_deploy(
                 raise SystemExit(1)
 
             if unknown_modules:
-                if json_output:
-                    emit_json(
-                        ok=False,
-                        error="Deploy blocked: unproven modules in this tenant.",
-                        data={"modules": unknown_modules},
-                        meta={"command": "scenario deploy"},
-                    )
+                if allow_unknown_modules:
+                    if not json_output:
+                        console.print("[yellow]Proceeding with unknown modules (override enabled):[/yellow]")
+                        for module in unknown_modules:
+                            console.print(f"  [yellow]-[/yellow] {module}")
+                else:
+                    if json_output:
+                        emit_json(
+                            ok=False,
+                            error="Deploy blocked: modules missing from offline catalog.",
+                            data={"modules": unknown_modules},
+                            meta={"command": "scenario deploy"},
+                        )
+                        raise SystemExit(1)
+                    console.print("[red]Deploy blocked: modules missing from offline catalog.[/red]")
+                    for module in unknown_modules:
+                        console.print(f"  [red]-[/red] {module}")
+                    console.print("[dim]Run `boost catalog refresh` to update registry.[/dim]")
+                    console.print("[dim]Or bypass once with --allow-unknown-modules.[/dim]")
                     raise SystemExit(1)
-                console.print("[red]Deploy blocked: unproven modules in this tenant.[/red]")
-                for module in unknown_modules:
-                    console.print(f"  [red]-[/red] {module}")
-                console.print("[dim]Run `boost scenario modules` to inspect known-good module names.[/dim]")
-                console.print("[dim]Or bypass once with --no-guard-compat.[/dim]")
-                raise SystemExit(1)
+
+            if unproven_tenant_modules and not json_output:
+                console.print("[yellow]Warning: modules not yet proven in this tenant scan:[/yellow]")
+                for module in unproven_tenant_modules:
+                    console.print(f"  [yellow]-[/yellow] {module}")
+                console.print("[dim]Continuing because modules are known in offline registry.[/dim]")
 
         if dry_run:
             if json_output:

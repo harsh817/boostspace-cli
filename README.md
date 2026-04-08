@@ -56,6 +56,33 @@ boost executions status 123456:abc123
 boost executions status --name "HM | Daily Report Leads" --from-history 145029
 ```
 
+## Offline Catalog + Formulas
+
+```bash
+# Catalog metadata and integrity
+boost catalog info
+boost catalog doctor
+
+# Search module registry offline
+boost catalog search "instagram"
+boost catalog module "instagram-business:CreatePostPhoto"
+
+# Refresh cache from @make-org/apps (requires npm)
+boost catalog refresh
+
+# Pull template pattern signals from make.com templates page (supplemental source)
+boost catalog templates --refresh
+boost catalog templates --query instagram --limit 10
+
+# Configure npm auth for private package access (prompts for token)
+boost catalog auth --scope @make-org --registry https://registry.npmjs.org/
+
+# Formula/function lookup and linting
+boost formulas search date
+boost formulas info formatDate
+boost formulas lint --file draft-capture-lead-webhook-and-push-to-google-sheets.json
+```
+
 ## Internet-First Scenario Builder
 
 ```bash
@@ -115,6 +142,10 @@ boost executions incomplete --name "HM | Daily Report Leads" --json
 boost webhooks list --json
 boost scenario setup --file draft-capture-lead-webhook-and-push-to-google-sheets.json --json
 boost scenario catalog --json
+boost catalog info --json
+boost catalog search instagram --json
+boost catalog templates --query instagram --json
+boost formulas search date --json
 boost scenario deploy --file draft-capture-lead-webhook-and-push-to-google-sheets.json --sample-json '{"email":"qa@example.com"}' --json
 ```
 

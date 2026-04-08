@@ -1,0 +1,24 @@
+{
+  "modules": [
+    "gateway:CustomWebHook",
+    "gateway:WebhookRespond",
+    "http:ActionSendData",
+    "http:ActionSendDataAPIKeyAuth",
+    "http:ActionSendDataBasicAuth",
+    "http:ActionSendDataClientCertAuth",
+    "http:MakeRequest",
+    "builtin:BasicRouter",
+    "builtin:BasicAggregator",
+    "util:SetVariables",
+    "util:SetVariable2",
+    "util:FunctionSleep",
+    "util:FunctionIncrement",
+    "util:TextAggregator",
+    "json:CreateJSON",
+    "json:ParseJSON",
+    "json:TransformToJSON",
+    "code:ExecuteCode",
+    "scenario-service:CallSubscenario",
+    "placeholder:Placeholder"
+  ]
+}

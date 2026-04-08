@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "source": "shipped-snapshot",
+    "generatedAt": "2026-04-08T00:00:00Z",
+    "packageVersion": "unknown",
+    "moduleCount": 12,
+    "appCount": 7
+  },
+  "modules": {
+    "gateway:CustomWebHook": {
+      "id": "gateway:CustomWebHook",
+      "app": "gateway",
+      "name": "CustomWebHook",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Custom Webhook",
+      "mapperFields": ["maxResults"]
+    },
+    "gateway:WebhookRespond": {
+      "id": "gateway:WebhookRespond",
+      "app": "gateway",
+      "name": "WebhookRespond",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Webhook Respond",
+      "mapperFields": ["status", "body"]
+    },
+    "openai-gpt-3:CreateCompletion": {
+      "id": "openai-gpt-3:CreateCompletion",
+      "app": "openai-gpt-3",
+      "name": "CreateCompletion",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Create Completion",
+      "mapperFields": ["model", "prompt", "max_tokens", "temperature"]
+    },
+    "openai-gpt-3:makeApiCall": {
+      "id": "openai-gpt-3:makeApiCall",
+      "app": "openai-gpt-3",
+      "name": "makeApiCall",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Make API Call",
+      "mapperFields": ["url", "method", "headers", "body"]
+    },
+    "google-sheets:addRow": {
+      "id": "google-sheets:addRow",
+      "app": "google-sheets",
+      "name": "addRow",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Add Row",
+      "mapperFields": ["sheetId", "row"]
+    },
+    "google-sheets:addMultipleRows": {
+      "id": "google-sheets:addMultipleRows",
+      "app": "google-sheets",
+      "name": "addMultipleRows",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Add Multiple Rows",
+      "mapperFields": ["sheetId", "rows"]
+    },
+    "google-sheets:updateRow": {
+      "id": "google-sheets:updateRow",
+      "app": "google-sheets",
+      "name": "updateRow",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Update Row",
+      "mapperFields": ["sheetId", "rowNumber", "row"]
+    },
+    "http:ActionSendData": {
+      "id": "http:ActionSendData",
+      "app": "http",
+      "name": "ActionSendData",
+      "latestVersion": 3,
+      "versions": [1, 2, 3],
+      "title": "HTTP Send Data",
+      "mapperFields": ["url", "method", "headers", "body"]
+    },
+    "http:MakeRequest": {
+      "id": "http:MakeRequest",
+      "app": "http",
+      "name": "MakeRequest",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "HTTP Make Request",
+      "mapperFields": ["url", "method", "headers", "body"]
+    },
+    "instagram-business:CreatePostPhoto": {
+      "id": "instagram-business:CreatePostPhoto",
+      "app": "instagram-business",
+      "name": "CreatePostPhoto",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Create Post Photo",
+      "mapperFields": ["accountId", "image_url", "caption"]
+    },
+    "util:SetVariables": {
+      "id": "util:SetVariables",
+      "app": "util",
+      "name": "SetVariables",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Set Variables",
+      "mapperFields": ["variables"]
+    },
+    "builtin:BasicRouter": {
+      "id": "builtin:BasicRouter",
+      "app": "builtin",
+      "name": "BasicRouter",
+      "latestVersion": 1,
+      "versions": [1],
+      "title": "Basic Router",
+      "mapperFields": []
+    }
+  },
+  "apps": {
+    "gateway": {
+      "id": "gateway",
+      "title": "Gateway",
+      "moduleIds": [
+        "gateway:CustomWebHook",
+        "gateway:WebhookRespond"
+      ]
+    },
+    "openai-gpt-3": {
+      "id": "openai-gpt-3",
+      "title": "OpenAI GPT-3",
+      "moduleIds": [
+        "openai-gpt-3:CreateCompletion",
+        "openai-gpt-3:makeApiCall"
+      ]
+    },
+    "google-sheets": {
+      "id": "google-sheets",
+      "title": "Google Sheets",
+      "moduleIds": [
+        "google-sheets:addRow",
+        "google-sheets:addMultipleRows",
+        "google-sheets:updateRow"
+      ]
+    },
+    "http": {
+      "id": "http",
+      "title": "HTTP",
+      "moduleIds": [
+        "http:ActionSendData",
+        "http:MakeRequest"
+      ]
+    },
+    "instagram-business": {
+      "id": "instagram-business",
+      "title": "Instagram Business",
+      "moduleIds": [
+        "instagram-business:CreatePostPhoto"
+      ]
+    },
+    "util": {
+      "id": "util",
+      "title": "Utilities",
+      "moduleIds": [
+        "util:SetVariables"
+      ]
+    },
+    "builtin": {
+      "id": "builtin",
+      "title": "Built-in",
+      "moduleIds": [
+        "builtin:BasicRouter"
+      ]
+    }
+  }
+}
