@@ -11,6 +11,16 @@ function parseJsonEnvelope(stdout) {
   if (!text) {
     return null;
   }
+
+  try {
+    const payload = JSON.parse(text);
+    if (payload && typeof payload === "object" && Object.prototype.hasOwnProperty.call(payload, "ok")) {
+      return payload;
+    }
+  } catch {
+    // fall back to line/object scans
+  }
+
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   for (let i = lines.length - 1; i >= 0; i -= 1) {
     const line = lines[i];
@@ -26,6 +36,20 @@ function parseJsonEnvelope(stdout) {
       // Keep scanning upward for JSON line.
     }
   }
+
+  const first = text.indexOf("{");
+  const last = text.lastIndexOf("}");
+  if (first >= 0 && last > first) {
+    try {
+      const payload = JSON.parse(text.slice(first, last + 1));
+      if (payload && typeof payload === "object" && Object.prototype.hasOwnProperty.call(payload, "ok")) {
+        return payload;
+      }
+    } catch {
+      // no-op
+    }
+  }
+
   return null;
 }
 
@@ -54,6 +78,9 @@ function runBoostJson(commandArgs) {
 }
 
 function asMcpResult(data, note = null) {
+  const structuredContent = data && typeof data === "object" && !Array.isArray(data)
+    ? data
+    : { result: data };
   return {
     content: [
       {
@@ -61,7 +88,7 @@ function asMcpResult(data, note = null) {
         text: note ? `${note}\n\n${JSON.stringify(data, null, 2)}` : JSON.stringify(data, null, 2),
       },
     ],
-    structuredContent: data,
+    structuredContent,
   };
 }
 
