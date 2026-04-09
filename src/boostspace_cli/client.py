@@ -142,6 +142,9 @@ class APIClient:
     def patch(self, path: str, json: Optional[dict] = None) -> dict:
         return self._request("PATCH", path, json=json)
 
+    def put(self, path: str, json: Optional[dict] = None) -> dict:
+        return self._request("PUT", path, json=json)
+
     def delete(self, path: str) -> dict:
         return self._request("DELETE", path)
 
@@ -247,16 +250,36 @@ class APIClient:
             try:
                 payload = self.get(endpoint, params=params)
                 if isinstance(payload, dict):
-                    result = dict(payload)
-                    result["_sourcePath"] = endpoint
-                    return result
-                return {"folders": payload, "_sourcePath": endpoint}
+                    folders = (
+                        payload.get("scenarioFolders")
+                        or payload.get("folders")
+                        or []
+                    )
+                    if folders:
+                        result = dict(payload)
+                        result["folders"] = folders
+                        result["_sourcePath"] = endpoint
+                        return result
+                elif isinstance(payload, list) and payload:
+                    return {"folders": payload, "_sourcePath": endpoint}
             except APIError as exc:
                 if exc.status_code in {404, 405}:
                     continue
                 raise
 
-        return {"folders": [], "_sourcePath": None}
+        # Fallback: derive unique folders from the scenarios list
+        scenarios_payload = self.list_scenarios(
+            team_id=team_id, organization_id=organization_id, limit=500
+        )
+        seen: dict[int, dict[str, Any]] = {}
+        for s in scenarios_payload.get("scenarios", []):
+            fid = s.get("folderId")
+            fname = None
+            if isinstance(s.get("folder"), dict):
+                fname = s["folder"].get("name")
+            if fid and isinstance(fid, int) and fid not in seen:
+                seen[fid] = {"id": fid, "name": fname or str(fid)}
+        return {"folders": list(seen.values()), "_sourcePath": "scenarios-derived"}
 
     def create_scenario_folder(
         self,

@@ -14,11 +14,19 @@ from .scenario_lookup import resolve_scenario_id
 
 
 def _parse_execution_ref(execution_ref: str) -> tuple[int | None, str]:
+    import re
+    # Handle explicit "scenarioId:executionId" or "scenarioId/executionId" forms
     for sep in (":", "/"):
         if sep in execution_ref:
             left, right = execution_ref.split(sep, 1)
             if left.isdigit() and right:
                 return int(left), right
+    # Auto-extract scenario ID from imtId patterns like:
+    #   "1775674187557_scenario.146878.auto.2495fc00561b4b2db3e58acce4ac2e58"
+    #   "1775674187557_scenario.146878.manual.xxxx"
+    m = re.search(r"_scenario\.(\d+)\.", execution_ref)
+    if m:
+        return int(m.group(1)), execution_ref
     return None, execution_ref
 
 
