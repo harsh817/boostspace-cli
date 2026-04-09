@@ -133,44 +133,108 @@ def _module_app(module_name: str) -> str:
     return module_name.split(":", 1)[0].strip().casefold() if ":" in module_name else module_name.strip().casefold()
 
 
+def iter_blueprint_modules(blueprint: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """Return all modules in a blueprint including nested router routes.
+
+    Returns tuples of (path, module_dict) where path is a best-effort string
+    pointing to where the module lives inside the blueprint.
+    """
+
+    flow = blueprint.get("flow") or blueprint.get("modules") or []
+    if not isinstance(flow, list):
+        return []
+
+    out: list[tuple[str, dict[str, Any]]] = []
+
+    def walk(node: object, path: str) -> None:
+        if isinstance(node, list):
+            for idx, item in enumerate(node):
+                walk(item, f"{path}[{idx}]")
+            return
+        if not isinstance(node, dict):
+            return
+
+        if "module" in node:
+            out.append((path, node))
+
+        routes = node.get("routes")
+        if isinstance(routes, list):
+            for ridx, route in enumerate(routes):
+                if not isinstance(route, dict):
+                    continue
+                walk(route.get("flow"), f"{path}.routes[{ridx}].flow")
+
+    walk(flow, "flow")
+    return out
+
+
+def module_requires_connection(module: dict[str, Any]) -> bool:
+    """Best-effort check whether a module requires __IMTCONN__.
+
+    Many exported blueprints include metadata.parameters that declares __IMTCONN__.
+    When present, we treat it as authoritative.
+    """
+
+    meta = module.get("metadata")
+    if not isinstance(meta, dict):
+        return False
+    declared = meta.get("parameters")
+    if not isinstance(declared, list):
+        return False
+
+    for row in declared:
+        if not isinstance(row, dict):
+            continue
+        if row.get("name") == "__IMTCONN__" and bool(row.get("required", False)):
+            return True
+    return False
+
+
 def required_connection_apps(blueprint: dict[str, Any]) -> set[str]:
     """Return app keys that need __IMTCONN__ wiring."""
-    flow = blueprint.get("flow") or blueprint.get("modules") or []
     apps: set[str] = set()
-    if not isinstance(flow, list):
-        return apps
 
-    for module in flow:
-        if not isinstance(module, dict):
-            continue
-        params = module.get("parameters")
+    for _, module in iter_blueprint_modules(blueprint):
         module_name = module.get("module")
-        if not isinstance(params, dict) or not isinstance(module_name, str):
+        if not isinstance(module_name, str):
             continue
-        if "__IMTCONN__" not in params:
-            continue
+
+        requires = module_requires_connection(module)
+        params = module.get("parameters")
+        if not isinstance(params, dict):
+            params = {}
         value = params.get("__IMTCONN__")
-        if not isinstance(value, int):
+
+        # If the module explicitly declares __IMTCONN__, require an integer.
+        if requires:
+            if not isinstance(value, int):
+                apps.add(_module_app(module_name))
+            continue
+
+        # Back-compat: If __IMTCONN__ is present, we still consider it a wiring target.
+        if "__IMTCONN__" in params and not isinstance(value, int):
             apps.add(_module_app(module_name))
     return apps
 
 
 def inject_connection_ids(blueprint: dict[str, Any], connections: dict[str, int]) -> tuple[dict[str, Any], int, list[str]]:
     """Inject integer connection IDs into modules requiring __IMTCONN__."""
-    flow = blueprint.get("flow") or blueprint.get("modules") or []
-    if not isinstance(flow, list):
-        return blueprint, 0, []
-
     wired = 0
     missing: set[str] = set()
-    for module in flow:
-        if not isinstance(module, dict):
-            continue
-        params = module.get("parameters")
+
+    for _, module in iter_blueprint_modules(blueprint):
         module_name = module.get("module")
-        if not isinstance(params, dict) or not isinstance(module_name, str):
+        if not isinstance(module_name, str):
             continue
-        if "__IMTCONN__" not in params:
+
+        requires = module_requires_connection(module)
+        params = module.get("parameters")
+        if not isinstance(params, dict):
+            params = {}
+            module["parameters"] = params
+
+        should_wire = requires or "__IMTCONN__" in params
+        if not should_wire:
             continue
         if isinstance(params.get("__IMTCONN__"), int):
             continue
@@ -548,29 +612,25 @@ def extract_blueprint(payload: dict[str, Any]) -> dict[str, Any]:
 def validate_blueprint_data(blueprint: dict[str, Any]) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    flow = blueprint.get("flow") or blueprint.get("modules")
 
-    if not isinstance(flow, list) or not flow:
+    modules = iter_blueprint_modules(blueprint)
+    if not modules:
         errors.append("Blueprint must include non-empty 'flow' list.")
         return errors, warnings
 
     module_ids: set[int] = set()
-    for idx, module in enumerate(flow):
-        if not isinstance(module, dict):
-            errors.append(f"Module at index {idx} is not an object.")
-            continue
-
+    for path, module in modules:
         mid = module.get("id")
         if not isinstance(mid, int):
-            errors.append(f"Module at index {idx} must have integer 'id'.")
+            errors.append(f"Module at {path} must have integer 'id'.")
         elif mid in module_ids:
-            errors.append(f"Duplicate module id: {mid}")
+            errors.append(f"Duplicate module id: {mid} (at {path})")
         else:
             module_ids.add(mid)
 
         mod = module.get("module")
         if not isinstance(mod, str) or ":" not in mod:
-            errors.append(f"Module {mid} missing valid 'module' value (expected app:action).")
+            errors.append(f"Module {mid} at {path} missing valid 'module' value (expected app:action).")
         elif mod in MODULE_COMPATIBILITY_RULES:
             rule = MODULE_COMPATIBILITY_RULES[mod]
             text = f"Module {mod}: {rule['message']}"
@@ -578,6 +638,12 @@ def validate_blueprint_data(blueprint: dict[str, Any]) -> tuple[list[str], list[
                 errors.append(text)
             else:
                 warnings.append(text)
+
+        if module_requires_connection(module):
+            params = module.get("parameters")
+            conn_ok = isinstance(params, dict) and isinstance(params.get("__IMTCONN__"), int)
+            if not conn_ok:
+                errors.append(f"Module {mid} at {path} missing required __IMTCONN__ connection id.")
 
     placeholders = sorted(set(PLACEHOLDER_RE.findall(json.dumps(blueprint))))
     if placeholders:
