@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-import shutil
+import os
 import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
 from typing import Any, Literal
 
+from ..executables import resolve_executable
 from .builders.make_apps_npm import build_registry_from_extracted_package
 from .builders.make_apps_web import build_registry_from_web_snapshot
 from .store import CACHE_REGISTRY_PATH, load_cached_registry, save_cached_registry, validate_registry
@@ -19,7 +20,11 @@ DEFAULT_SOURCE: CatalogSource = "web"
 
 
 def _run_npm_pack(workdir: Path, package_name: str) -> tuple[Path, str]:
-    npm_bin = shutil.which("npm")
+    appdata = os.getenv("APPDATA", "").strip()
+    windows_candidates: list[str] = []
+    if appdata:
+        windows_candidates.append(str(Path(appdata) / "npm" / "npm.cmd"))
+    npm_bin = resolve_executable("npm", windows_candidates=windows_candidates)
     if npm_bin is None:
         raise RuntimeError("npm not found. Install Node.js/npm to use --source npm.")
 

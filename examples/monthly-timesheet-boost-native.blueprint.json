@@ -1,0 +1,62 @@
+{
+  "name": "Monthly Timesheet Automation - Boost Native",
+  "flow": [
+    {
+      "id": 1,
+      "module": "code:ExecuteCode",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "language": "javascript",
+        "inputFormat": "editor",
+        "dependencies": [],
+        "input": [
+          {
+            "name": "templateFileId",
+            "value": "1BgGaLo-kA4oQEmDCo0xb5DL929HnQLf3zYSEkMV2lX0"
+          },
+          {
+            "name": "parentFolderId",
+            "value": "1nfsfPcQIV0dKWkuwpBOyNqGWcnWydHaP"
+          },
+          {
+            "name": "controlSpreadsheetId",
+            "value": "1nk_IYzUKOI-tch9ilAd2NnVOqkMD3vGl0JSmz6FA9P8"
+          },
+          {
+            "name": "managerEmail",
+            "value": "hme4080@gmail.com"
+          },
+          {
+            "name": "oauthClientId",
+            "value": "{{GOOGLE_OAUTH_CLIENT_ID}}"
+          },
+          {
+            "name": "oauthClientSecret",
+            "value": "{{GOOGLE_OAUTH_CLIENT_SECRET}}"
+          },
+          {
+            "name": "oauthRefreshToken",
+            "value": "{{GOOGLE_OAUTH_REFRESH_TOKEN}}"
+          },
+          {
+            "name": "forceRun",
+            "value": "false"
+          },
+          {
+            "name": "managerTemplateSheetId",
+            "value": "1m9xVuHZTIEETRQdrVzIW0zPACTzMXp79smDsAxof4sk"
+          }
+        ],
+        "codeEditorJavascript": "\nfunction nowIso(){return new Date().toISOString();}\nfunction monthStamp(d){const y=d.getUTCFullYear(); const m=String(d.getUTCMonth()+1).padStart(2,\"0\"); return `${y}-${m}`;}\nfunction isLastDayOfMonth(d){const next=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()+1)); return next.getUTCMonth()!==d.getUTCMonth();}\n\nasync function getAccessToken(cfg){\n  const body=new URLSearchParams({\n    client_id: cfg.oauthClientId,\n    client_secret: cfg.oauthClientSecret,\n    refresh_token: cfg.oauthRefreshToken,\n    grant_type: \"refresh_token\"\n  });\n  const resp=await fetch(\"https://oauth2.googleapis.com/token\",{method:\"POST\",headers:{\"Content-Type\":\"application/x-www-form-urlencoded\"},body});\n  if(!resp.ok){throw new Error(`token_error_${resp.status}: ${await resp.text()}`);}\n  const data=await resp.json();\n  return data.access_token;\n}\n\nasync function gapi({method,url,token,body}){\n  const resp=await fetch(url,{method,headers:{Authorization:`Bearer ${token}`,\"Content-Type\":\"application/json\"},body:body?JSON.stringify(body):undefined});\n  const txt=await resp.text();\n  let data={}; try{data=txt?JSON.parse(txt):{};}catch(_){data={raw:txt};}\n  if(!resp.ok){throw new Error(`google_api_${resp.status}: ${txt}`);}\n  return data;\n}\n\nasync function main(){\n  const cfg={\n    templateFileId:String(input.templateFileId||\"\"),\n    parentFolderId:String(input.parentFolderId||\"\"),\n    controlSpreadsheetId:String(input.controlSpreadsheetId||\"\"),\n    managerEmail:String(input.managerEmail||\"\"),\n    oauthClientId:String(input.oauthClientId||\"\"),\n    oauthClientSecret:String(input.oauthClientSecret||\"\"),\n    oauthRefreshToken:String(input.oauthRefreshToken||\"\"),\n  };\n  const force=(input.forceRun===true)||(String(input.forceRun||\"\" ).toLowerCase()===\"true\");\n  if(!cfg.templateFileId||!cfg.parentFolderId||!cfg.controlSpreadsheetId||!cfg.managerEmail||!cfg.oauthClientId||!cfg.oauthClientSecret||!cfg.oauthRefreshToken){\n    throw new Error(\"missing_required_input\");\n  }\n\n  const today=new Date();\n  if(!force && !isLastDayOfMonth(today)){\n    return {ran:false,reason:\"not_last_day\",date:today.toISOString()};\n  }\n\n  const token=await getAccessToken(cfg);\n  const month=monthStamp(today);\n\n  const trackerReadUrl=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.controlSpreadsheetId}/values/${encodeURIComponent(\"tracker!A2:G\")}`;\n  const trackerData=await gapi({method:\"GET\",url:trackerReadUrl,token});\n  const trackerRows=Array.isArray(trackerData.values)?trackerData.values:[];\n  const existingKeys=new Set();\n  for(const row of trackerRows){\n    const m=String((row&&row[0])||\"\").trim();\n    const e=String((row&&row[1])||\"\").trim().toLowerCase();\n    if(m && e) existingKeys.add(`${m}|${e}`);\n  }\n\n  const leadUrl=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.controlSpreadsheetId}/values/${encodeURIComponent(\"lead_registry!A2:B\")}`;\n  const leadData=await gapi({method:\"GET\",url:leadUrl,token});\n  const rows=Array.isArray(leadData.values)?leadData.values:[];\n\n  const created=[];\n  const skipped=[];\n  for(const row of rows){\n    const leadName=String((row&&row[0])||\"\").trim();\n    const leadEmail=String((row&&row[1])||\"\").trim();\n    if(!leadName||!leadEmail) continue;\n\n    const key=`${month}|${leadEmail.toLowerCase()}`;\n    if(existingKeys.has(key)){\n      skipped.push({leadEmail, reason:\"already_provisioned_for_month\"});\n      continue;\n    }\n\n    const copyUrl=`https://www.googleapis.com/drive/v3/files/${cfg.templateFileId}/copy?supportsAllDrives=true&fields=id,name,webViewLink`;\n    const copied=await gapi({method:\"POST\",url:copyUrl,token,body:{name:`Timesheet ${month} - ${leadName}`,parents:[cfg.parentFolderId]}});\n    const fileId=String(copied.id||\"\");\n    const sheetUrl=String(copied.webViewLink||\"\");\n\n    const leadPermUrl=`https://www.googleapis.com/drive/v3/files/${fileId}/permissions?supportsAllDrives=true&sendNotificationEmail=true&emailMessage=${encodeURIComponent(\"Please fill your timesheet.\")}`;\n    await gapi({method:\"POST\",url:leadPermUrl,token,body:{type:\"user\",role:\"writer\",emailAddress:leadEmail}});\n\n    const mgrPermUrl=`https://www.googleapis.com/drive/v3/files/${fileId}/permissions?supportsAllDrives=true&sendNotificationEmail=false`;\n    await gapi({method:\"POST\",url:mgrPermUrl,token,body:{type:\"user\",role:\"writer\",emailAddress:cfg.managerEmail}});\n\n    const appendUrl=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.controlSpreadsheetId}/values/${encodeURIComponent(\"tracker!A2:G\")}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;\n    await gapi({method:\"POST\",url:appendUrl,token,body:{values:[[month,leadEmail,leadName,fileId,sheetUrl,\"sent\",nowIso()]]}});\n\n    created.push({leadEmail,leadName,fileId,sheetUrl});\n    existingKeys.add(key);\n  }\n\n  return {ran:true,month,createdCount:created.length,skippedCount:skipped.length,created,skipped};\n}\n\nreturn await main();\n"
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3
+    }
+  }
+}

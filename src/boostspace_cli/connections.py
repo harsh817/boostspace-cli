@@ -7,6 +7,7 @@ from .client import APIClient, APIError
 from .config import Config
 from .console import console
 from .jsonio import emit_json
+from .scenario_builder_helpers import connection_compatibility_rows, normalize_app_key
 
 
 @click.group()
@@ -73,4 +74,52 @@ def list_connections(ctx, team_id, app, json_output):
             c.get("accountType") or c.get("type") or "—",
         )
 
+    console.print(table)
+
+
+@connections.command("compat")
+@click.argument("module_name", type=str)
+@click.option("--team-id", type=int, help="Team ID (overrides config)")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON")
+@click.pass_context
+def compatibility(ctx, module_name, team_id, json_output):
+    """Show likely compatible connections for a module."""
+    config: Config = ctx.obj["config"]
+    tid = team_id or config.team_id
+    normalized_module = normalize_app_key(module_name) if ":" not in module_name else module_name.strip()
+
+    with APIClient(config) as client:
+        try:
+            rows = connection_compatibility_rows(client, tid, normalized_module)
+        except APIError as e:
+            if json_output:
+                emit_json(ok=False, error=str(e), meta={"command": "connections compat"})
+                raise SystemExit(1)
+            console.print(f"[red]Error: {e}[/red]")
+            raise SystemExit(1)
+
+    payload = {
+        "module": normalized_module,
+        "compatibleConnections": [row for row in rows if row.get("compatible")],
+        "incompatibleConnections": [row for row in rows if not row.get("compatible")],
+    }
+
+    if json_output:
+        emit_json(data=payload, meta={"command": "connections compat"})
+        return
+
+    table = Table(title=f"Connection Compatibility: {normalized_module}")
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Name", style="white")
+    table.add_column("App", style="green")
+    table.add_column("Compatible", style="white")
+    table.add_column("Reason", style="magenta")
+    for row in rows:
+        table.add_row(
+            str(row.get("id", "—")),
+            str(row.get("name", "—")),
+            str(row.get("app", "—")),
+            "yes" if row.get("compatible") else "no",
+            str(row.get("reason", "—")),
+        )
     console.print(table)

@@ -24,6 +24,19 @@ APP_ALIASES: dict[str, tuple[str, ...]] = {
     "airtable": ("airtable",),
 }
 
+MODULE_CONNECTION_PREFERENCES: dict[str, tuple[str, ...]] = {
+    "google-sheets:addRow": ("google", "google-sheets"),
+    "google-sheets:addMultipleRows": ("google", "google-sheets"),
+    "google-sheets:updateRow": ("google", "google-sheets"),
+    "google-sheets:getSheetContent": ("google", "google-sheets"),
+    "google-sheets:filterRows": ("google", "google-sheets"),
+    "google-sheets:filterRowsAdvanced": ("google", "google-sheets"),
+    "google-sheets:watchRows": ("google", "google-sheets"),
+    "google-sheets:createSpreadsheet": ("google", "google-sheets"),
+    "google-sheets:createASpreadsheetFromATemplate": ("google", "google-sheets"),
+    "google-drive:getAFile": ("google-restricted", "google-drive", "google"),
+}
+
 _ALIAS_TO_CANONICAL: dict[str, str] = {}
 for canonical, aliases in APP_ALIASES.items():
     _ALIAS_TO_CANONICAL[canonical] = canonical
@@ -227,38 +240,125 @@ def parse_connection_pairs(connection_pairs: tuple[str, ...]) -> dict[str, int]:
     return parsed
 
 
+def _expanded_connection_keys(conn: dict[str, Any]) -> tuple[int | None, str, str, set[str], set[str]]:
+    raw_app = conn.get("accountType") or conn.get("type") or ""
+    raw_name = conn.get("accountName") or conn.get("name") or ""
+    conn_id = conn.get("id")
+
+    candidates: list[str] = []
+    if raw_app:
+        candidates.append(str(raw_app))
+    if raw_name:
+        candidates.append(str(raw_name))
+
+    direct_keys: set[str] = set()
+    expanded_keys: set[str] = set()
+    for candidate in candidates:
+        normalized = normalize_app_key(candidate)
+        if not normalized:
+            continue
+        direct_keys.add(normalized)
+        expanded_keys.add(normalized)
+
+        # Some providers expose generic OAuth names in accountName/accountType
+        # (for example: "google", "google-restricted", "slack2").
+        # Expand those to native module app ids expected by blueprints.
+        if normalized in {"google", "google-restricted"}:
+            expanded_keys.update({"google-sheets", "google-drive", "google-docs", "google-calendar"})
+        if normalized.startswith("slack"):
+            expanded_keys.add("slack")
+
+    return (conn_id if isinstance(conn_id, int) else None, str(raw_name), str(raw_app), direct_keys, expanded_keys)
+
+
+def connection_compatibility_rows(client: APIClient, team_id: int | None, module_name: str) -> list[dict[str, Any]]:
+    result = client.list_connections(team_id=team_id)
+    conns = result.get("connections", result if isinstance(result, list) else [])
+    if not isinstance(conns, list):
+        return []
+
+    app = module_name.split(":", 1)[0].strip().casefold() if ":" in module_name else module_name.strip().casefold()
+    preferred_aliases = tuple(normalize_app_key(item) for item in MODULE_CONNECTION_PREFERENCES.get(module_name, ()))
+
+    rows: list[dict[str, Any]] = []
+    for conn in conns:
+        if not isinstance(conn, dict):
+            continue
+        conn_id, raw_name, raw_app, direct_keys, expanded_keys = _expanded_connection_keys(conn)
+        if conn_id is None:
+            continue
+
+        reason = "app_mismatch"
+        compatible = False
+        score = 999
+        matched_key = ""
+
+        has_module_preferences = module_name in MODULE_CONNECTION_PREFERENCES
+        if has_module_preferences:
+            for priority, alias in enumerate(preferred_aliases):
+                if alias in direct_keys:
+                    compatible = True
+                    score = priority
+                    matched_key = alias
+                    reason = "module_preference"
+                    break
+
+        if not compatible and not has_module_preferences and app in expanded_keys:
+            compatible = True
+            score = 100
+            matched_key = app
+            reason = "app_family"
+
+        rows.append(
+            {
+                "id": conn_id,
+                "name": raw_name or conn.get("name") or "",
+                "app": raw_app or conn.get("type") or "",
+                "compatible": compatible,
+                "reason": reason,
+                "matchedKey": matched_key or None,
+                "score": score,
+            }
+        )
+
+    rows.sort(key=lambda row: (not bool(row["compatible"]), int(row["score"]), str(row["name"]).casefold(), int(row["id"])))
+    return rows
+
+
 def team_connection_map(client: APIClient, team_id: int | None) -> dict[str, int]:
     result = client.list_connections(team_id=team_id)
     conns = result.get("connections", result if isinstance(result, list) else [])
     conn_map: dict[str, int] = {}
+    module_best: dict[str, tuple[int, int]] = {}
     if not isinstance(conns, list):
         return conn_map
 
     for conn in conns:
         if not isinstance(conn, dict):
             continue
-        raw_app = conn.get("accountType") or conn.get("type") or ""
-        raw_name = conn.get("accountName") or conn.get("name") or ""
-        conn_id = conn.get("id")
-        if not isinstance(conn_id, int):
+        conn_id, _raw_name, _raw_app, _direct_keys, expanded_keys = _expanded_connection_keys(conn)
+        if conn_id is None:
             continue
 
-        candidates: list[str] = []
-        if raw_app:
-            candidates.append(str(raw_app))
-        if raw_name:
-            candidates.append(str(raw_name))
-
-        for candidate in candidates:
-            normalized = normalize_app_key(candidate)
-            if not normalized:
-                continue
+        for normalized in expanded_keys:
             conn_map.setdefault(normalized, conn_id)
 
             # Add alias keys for ergonomic lookups
             for alias, canonical in _ALIAS_TO_CANONICAL.items():
                 if canonical == normalized:
                     conn_map.setdefault(alias, conn_id)
+
+        for module_name, preferred_aliases in MODULE_CONNECTION_PREFERENCES.items():
+            for priority, preferred_alias in enumerate(preferred_aliases):
+                normalized_alias = normalize_app_key(preferred_alias)
+                if normalized_alias in expanded_keys:
+                    current = module_best.get(module_name)
+                    if current is None or priority < current[0]:
+                        module_best[module_name] = (priority, conn_id)
+                    break
+
+    for module_name, (_priority, conn_id) in module_best.items():
+        conn_map[module_name] = conn_id
     return conn_map
 
 

@@ -41,6 +41,22 @@ def test_inject_connection_ids_wires_integer_values():
     assert wired_blueprint["flow"][1]["parameters"]["__IMTCONN__"] == 99
 
 
+def test_inject_connection_ids_prefers_module_specific_match_over_app_match():
+    blueprint = {
+        "flow": [
+            {"id": 1, "module": "google-sheets:addRow", "parameters": {"__IMTCONN__": "{{connection_google_sheets}}"}},
+        ]
+    }
+    wired_blueprint, wired_count, missing = inject_connection_ids(
+        blueprint,
+        {"google-sheets": 164145, "google-sheets:addRow": 147240},
+    )
+
+    assert wired_count == 1
+    assert missing == []
+    assert wired_blueprint["flow"][0]["parameters"]["__IMTCONN__"] == 147240
+
+
 def test_align_modules_to_known_replaces_unknown_variant():
     blueprint = {
         "flow": [

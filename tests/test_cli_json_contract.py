@@ -134,6 +134,13 @@ def test_scenario_deploy_dry_run_json_envelope(monkeypatch, tmp_path):
             _ = team_id
             return {"connections": []}
 
+        def create_scenario(self, **_kwargs):
+            return {"scenario": {"id": 321}}
+
+        def delete_scenario(self, scenario_id):
+            _ = scenario_id
+            return {"ok": True}
+
     monkeypatch.setattr(scenario_builder_mod, "APIClient", FakeClient)
 
     runner = CliRunner()
@@ -270,6 +277,13 @@ def test_scenario_deploy_dry_run_autowires_connection_ids(monkeypatch, tmp_path)
         def list_connections(self, team_id=None):
             _ = team_id
             return {"connections": [{"id": 42, "accountType": "openai-gpt-3", "accountName": "OpenAI"}]}
+
+        def create_scenario(self, **_kwargs):
+            return {"scenario": {"id": 654}}
+
+        def delete_scenario(self, scenario_id):
+            _ = scenario_id
+            return {"ok": True}
 
     monkeypatch.setattr(scenario_builder_mod, "APIClient", FakeClient)
 
@@ -543,6 +557,17 @@ def test_scenario_deploy_replaces_credentials_and_verifies_run(monkeypatch, tmp_
             return {"connections": []}
 
         def create_scenario(self, **_kwargs):
+            return {"scenario": {"id": 321}}
+
+        def delete_scenario(self, scenario_id):
+            _ = scenario_id
+            return {"ok": True}
+
+        def delete_scenario(self, scenario_id):
+            _ = scenario_id
+            return {"ok": True}
+
+        def create_scenario(self, **_kwargs):
             return {"scenario": {"id": 555}}
 
         def start_scenario(self, scenario_id):
@@ -578,6 +603,7 @@ def test_scenario_deploy_replaces_credentials_and_verifies_run(monkeypatch, tmp_
     assert payload["ok"] is True
     assert payload["data"]["credentialReplacements"] >= 1
     assert payload["data"]["verification"]["statusText"] == "success"
+    assert payload["data"]["liveCompatibility"]["ok"] is True
 
 
 def test_scenario_deploy_fails_when_credentials_missing(monkeypatch, tmp_path):
@@ -625,3 +651,159 @@ def test_scenario_deploy_fails_when_credentials_missing(monkeypatch, tmp_path):
     payload = _payload(result.output)
     assert payload["ok"] is False
     assert "Missing credential values" in payload["error"]
+
+
+def test_scenario_deploy_dry_run_uses_live_probe_and_deletes_temp(monkeypatch, tmp_path):
+    monkeypatch.setattr(config_mod, "DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
+    monkeypatch.setattr(config_mod, "DEFAULT_COOKIE_PATH", tmp_path / "cookies.json")
+
+    draft_path = tmp_path / "draft-live-probe.json"
+    draft_path.write_text(
+        json.dumps(
+            {
+                "blueprint": {
+                    "name": "Live Probe Draft",
+                    "flow": [
+                        {
+                            "id": 1,
+                            "module": "http:ActionSendData",
+                            "version": 3,
+                            "parameters": {},
+                            "mapper": {"url": "https://api.example.com?token=secret"},
+                        }
+                    ],
+                    "metadata": {"version": 1, "scenario": {"roundtrips": 1, "maxErrors": 3}},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    calls: list[tuple[str, object]] = []
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get_user(self):
+            return {"user": {"email": "qa@example.com"}}
+
+        def list_connections(self, team_id=None):
+            _ = team_id
+            return {"connections": []}
+
+        def create_scenario(self, **kwargs):
+            calls.append(("create", kwargs.get("name")))
+            return {"scenario": {"id": 777}}
+
+        def delete_scenario(self, scenario_id):
+            calls.append(("delete", scenario_id))
+            return {"ok": True}
+
+    monkeypatch.setattr(scenario_builder_mod, "APIClient", FakeClient)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "scenario",
+            "deploy",
+            "--file",
+            str(draft_path),
+            "--dry-run",
+            "--allow-http-fallback",
+            "--no-guard-compat",
+            "--team-id",
+            "123",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = _payload(result.output)
+    assert payload["ok"] is True
+    assert payload["data"]["liveCompatibility"]["ok"] is True
+    assert calls[0][0] == "create"
+    assert calls[1] == ("delete", 777)
+
+
+def test_scenario_deploy_dry_run_reports_live_probe_failure(monkeypatch, tmp_path):
+    monkeypatch.setattr(config_mod, "DEFAULT_CONFIG_PATH", tmp_path / "config.yaml")
+    monkeypatch.setattr(config_mod, "DEFAULT_COOKIE_PATH", tmp_path / "cookies.json")
+
+    draft_path = tmp_path / "draft-live-probe-fail.json"
+    draft_path.write_text(
+        json.dumps(
+            {
+                "blueprint": {
+                    "name": "Live Probe Fail Draft",
+                    "flow": [
+                        {
+                            "id": 1,
+                            "module": "http:ActionSendData",
+                            "version": 3,
+                            "parameters": {},
+                            "mapper": {"url": "https://api.example.com?token=secret"},
+                        }
+                    ],
+                    "metadata": {"version": 1, "scenario": {"roundtrips": 1, "maxErrors": 3}},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeClient:
+        def __init__(self, _config):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def get_user(self):
+            return {"user": {"email": "qa@example.com"}}
+
+        def list_connections(self, team_id=None):
+            _ = team_id
+            return {"connections": []}
+
+        def create_scenario(self, **_kwargs):
+            raise scenario_builder_mod.APIError(
+                400,
+                "Bad Request",
+                {"code": "IM007", "detail": "Provided account '164145' is not compatible with 'google-sheets:addRow' module."},
+            )
+
+    monkeypatch.setattr(scenario_builder_mod, "APIClient", FakeClient)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        [
+            "scenario",
+            "deploy",
+            "--file",
+            str(draft_path),
+            "--dry-run",
+            "--allow-http-fallback",
+            "--no-guard-compat",
+            "--team-id",
+            "123",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    payload = _payload(result.output)
+    assert payload["ok"] is False
+    assert "Live compatibility probe failed" in payload["error"]
+    assert payload["data"]["liveCompatibility"]["ok"] is False

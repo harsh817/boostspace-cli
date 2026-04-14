@@ -28,21 +28,46 @@ def _extract_error_code(detail: Any) -> Optional[str]:
     return None
 
 
+def _extract_detail_message(detail: Any) -> str:
+    if isinstance(detail, str):
+        return detail.strip()
+
+    if not isinstance(detail, dict):
+        return ""
+
+    for key in ("detail", "message", "error"):
+        value = detail.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    suberrors = detail.get("suberrors")
+    if isinstance(suberrors, list) and suberrors:
+        first = suberrors[0]
+        if isinstance(first, dict):
+            for key in ("message", "detail", "error"):
+                value = first.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        if isinstance(first, str) and first.strip():
+            return first.strip()
+
+    return ""
+
+
 def _error_hint(status_code: int, code: Optional[str], detail: Any) -> str:
+    detail_msg = _extract_detail_message(detail)
+
     if code == "IM015":
         return "Session expired or invalid. Run 'boost auth playwright'."
     if code == "IM007":
-        return "Invalid blueprint/module. Run 'boost scenario repair' then validate."
+        base = "Invalid blueprint/module. Run 'boost scenario repair' then validate."
+        if detail_msg and detail_msg.casefold() != base.casefold():
+            return f"{base} {detail_msg}"
+        return base
     if code == "SC400":
         base = "Request validation failed. Check required fields and IDs."
-        if isinstance(detail, dict):
-            suberrors = detail.get("suberrors")
-            if isinstance(suberrors, list) and suberrors:
-                first = suberrors[0]
-                if isinstance(first, dict) and first.get("message"):
-                    return f"{base} {first['message']}"
-                if isinstance(first, str):
-                    return f"{base} {first}"
+        if detail_msg and detail_msg.casefold() != base.casefold():
+            return f"{base} {detail_msg}"
         return base
     if status_code == 401:
         return "Unauthorized. Run 'boost auth doctor --fix' or re-login."
@@ -53,14 +78,7 @@ def _error_hint(status_code: int, code: Optional[str], detail: Any) -> str:
     if status_code == 429:
         return "Rate limit hit. Wait and retry."
 
-    if isinstance(detail, dict):
-        suberrors = detail.get("suberrors")
-        if isinstance(suberrors, list) and suberrors:
-            first = suberrors[0]
-            if isinstance(first, dict) and first.get("message"):
-                return str(first["message"])
-
-    return ""
+    return detail_msg
 
 
 class APIClient:

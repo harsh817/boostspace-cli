@@ -37,3 +37,6 @@ def test_catalog_module_cli_json_contract():
     assert payload["ok"] is True
     assert payload["meta"]["command"] == "catalog module"
     assert payload["data"]["id"] == "gateway:CustomWebHook"
+    assert payload["data"]["catalogKnown"] is True
+    assert payload["data"]["tenantSeen"] is None
+    assert payload["data"]["tenantDeployable"] is None

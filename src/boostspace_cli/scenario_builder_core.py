@@ -240,7 +240,9 @@ def inject_connection_ids(blueprint: dict[str, Any], connections: dict[str, int]
             continue
 
         app = _module_app(module_name)
-        conn_id = connections.get(app)
+        conn_id = connections.get(module_name)
+        if conn_id is None:
+            conn_id = connections.get(app)
         if conn_id is None:
             missing.add(app)
             continue

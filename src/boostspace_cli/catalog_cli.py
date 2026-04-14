@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
+from pathlib import Path
 from urllib.parse import urlparse
 
 import click
@@ -23,6 +23,7 @@ from .catalog.templates import (
     search_templates,
 )
 from .console import console
+from .executables import resolve_executable
 from .jsonio import emit_json
 
 
@@ -96,6 +97,13 @@ def catalog_module(module_id: str, json_output: bool) -> None:
         console.print(f"[red]Module not found: {module_id}[/red]")
         raise SystemExit(1)
 
+    details = {
+        **details,
+        "catalogKnown": True,
+        "tenantSeen": None,
+        "tenantDeployable": None,
+    }
+
     if json_output:
         emit_json(data=details, meta={"command": "catalog module"})
         return
@@ -134,7 +142,11 @@ def catalog_refresh(force: bool, package_name: str, json_output: bool) -> None:
 @click.option("--json", "json_output", is_flag=True, help="Output JSON")
 def catalog_auth(scope: str, registry: str, token: str | None, package_name: str, json_output: bool) -> None:
     """Configure npm auth for private catalog package access."""
-    npm_bin = shutil.which("npm")
+    appdata = os.getenv("APPDATA", "").strip()
+    windows_candidates: list[str] = []
+    if appdata:
+        windows_candidates.append(str(Path(appdata) / "npm" / "npm.cmd"))
+    npm_bin = resolve_executable("npm", windows_candidates=windows_candidates)
     if npm_bin is None:
         message = "npm not found. Install Node.js/npm first."
         if json_output:

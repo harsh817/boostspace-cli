@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -66,6 +67,7 @@ def scenario_builder() -> None:
 def scenario_modules(ctx: click.Context, limit: int, refresh: bool, cache_ttl: int, json_output: bool) -> None:
     """List modules proven in your tenant from existing scenarios."""
     config: Config = ctx.obj["config"]
+    catalog_modules = known_module_ids()
     with APIClient(config) as client:
         modules = sorted(
             tenant_known_modules(
@@ -79,17 +81,18 @@ def scenario_modules(ctx: click.Context, limit: int, refresh: bool, cache_ttl: i
             ),
             key=str.casefold,
         )
+    module_rows = _module_confidence_rows(set(modules), set(modules), catalog_modules)
 
     if json_output:
-        emit_json(data=modules, meta={"command": "scenario modules", "limit": limit, "refresh": bool(refresh), "cacheTtl": cache_ttl})
+        emit_json(data=module_rows, meta={"command": "scenario modules", "limit": limit, "refresh": bool(refresh), "cacheTtl": cache_ttl})
         return
 
     if not modules:
         console.print("[yellow]No modules discovered from current scenario set.[/yellow]")
         return
 
-    for module in modules:
-        console.print(module)
+    for row in module_rows:
+        console.print(f"{row['module']} [{row['confidence']}]")
 
 
 @scenario_builder.command("catalog")
@@ -338,17 +341,71 @@ def _module_confidence_rows(
     modules: set[str],
     tenant_modules: set[str],
     catalog_modules: set[str],
-) -> list[dict[str, str]]:
-    rows: list[dict[str, str]] = []
+) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
     for module in sorted(modules, key=str.casefold):
-        if module in tenant_modules:
+        tenant_seen = module in tenant_modules
+        catalog_known = module in catalog_modules
+        tenant_deployable = tenant_seen
+        if tenant_seen:
             confidence = "tenant_proven"
-        elif module in catalog_modules:
+        elif catalog_known:
             confidence = "catalog_known"
         else:
             confidence = "unknown"
-        rows.append({"module": module, "confidence": confidence})
+        rows.append(
+            {
+                "module": module,
+                "confidence": confidence,
+                "catalogKnown": catalog_known,
+                "tenantSeen": tenant_seen,
+                "tenantDeployable": tenant_deployable,
+            }
+        )
     return rows
+
+
+def _live_probe_scenario_create(
+    client: APIClient,
+    *,
+    team_id: int,
+    blueprint: dict,
+    scheduling: dict[str, object],
+    folder_id: int | None,
+    scenario_name: str,
+) -> dict[str, object]:
+    probe_name = f"{scenario_name} [compat-probe {uuid.uuid4().hex[:8]}]"
+    created_id: int | None = None
+    try:
+        result = client.create_scenario(
+            team_id=team_id,
+            blueprint=blueprint,
+            scheduling=scheduling,
+            name=probe_name,
+            folder_id=folder_id,
+        )
+        created = result.get("scenario", result)
+        created_id = int(created.get("id"))
+        return {
+            "checked": True,
+            "ok": True,
+            "probeScenarioId": created_id,
+            "probeName": probe_name,
+        }
+    except APIError as exc:
+        return {
+            "checked": True,
+            "ok": False,
+            "error": str(exc),
+            "detail": exc.detail,
+            "probeName": probe_name,
+        }
+    finally:
+        if created_id is not None:
+            try:
+                client.delete_scenario(created_id)
+            except APIError:
+                pass
 
 
 def _catalog_staleness_days() -> float | None:
@@ -1332,6 +1389,8 @@ def scenario_deploy(
         if schedule_type == "indefinitely":
             scheduling["interval"] = int(interval)
 
+        live_probe_result: dict[str, object] | None = None
+
         t_connections = time.perf_counter()
         required_apps = sorted(required_connection_apps(blueprint))
         connections = team_connection_map(client, resolved_team_id)
@@ -1449,6 +1508,35 @@ def scenario_deploy(
 
         module_confidence = _module_confidence_rows(blueprint_modules, known_modules, catalog_modules)
 
+        t_live_probe = time.perf_counter()
+        live_probe_result = _live_probe_scenario_create(
+            client,
+            team_id=resolved_team_id,
+            blueprint=blueprint,
+            scheduling=scheduling,
+            folder_id=resolved_folder_id,
+            scenario_name=scenario_name,
+        )
+        stage_timings["liveCompatProbe"] = round(time.perf_counter() - t_live_probe, 3)
+
+        if not bool(live_probe_result.get("ok")):
+            error_msg = f"Live compatibility probe failed: {live_probe_result.get('error', 'unknown error')}"
+            if json_output:
+                emit_json(
+                    ok=False,
+                    error=error_msg,
+                    data={
+                        "liveCompatibility": live_probe_result,
+                        "requiredConnectionApps": required_apps,
+                        "autoWiredConnections": wired_count,
+                        "runtimeTokens": runtime_tokens,
+                    },
+                    meta={"command": "scenario deploy", "dryRun": bool(dry_run), "profile": resolved_profile},
+                )
+                raise SystemExit(1)
+            console.print(f"[red]{error_msg}[/red]")
+            raise SystemExit(1)
+
         if resolved_profile == "balanced" and _param_is_default(ctx, "verify_run") and not inactive:
             effective_verify_run = bool(unproven_tenant_modules)
             if effective_verify_run:
@@ -1476,6 +1564,7 @@ def scenario_deploy(
                         "runtimeTokens": runtime_tokens,
                         "samplePayloadKeys": sorted(sample_payload.keys()),
                         "moduleConfidence": module_confidence,
+                        "liveCompatibility": live_probe_result,
                         "profileNotes": profile_notes,
                         "catalogAgeDays": round(catalog_age_days, 2) if catalog_age_days is not None else None,
                         "timings": stage_timings if timings else None,
@@ -1576,6 +1665,7 @@ def scenario_deploy(
                         "runtimeTokens": runtime_tokens,
                         "samplePayloadKeys": sorted(sample_payload.keys()),
                         "moduleConfidence": module_confidence,
+                        "liveCompatibility": live_probe_result,
                         "profileNotes": profile_notes,
                         "catalogAgeDays": round(catalog_age_days, 2) if catalog_age_days is not None else None,
                         "timings": stage_timings if timings else None,

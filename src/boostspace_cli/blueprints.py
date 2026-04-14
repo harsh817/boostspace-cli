@@ -7,12 +7,26 @@ import click
 from .client import APIClient, APIError
 from .console import console
 from .jsonio import emit_json
+from .scenario_builder_core import extract_blueprint
 
 
 @click.group()
 def blueprints():
     """Export, import, and validate scenario blueprints."""
     pass
+
+
+def _load_blueprint_file(file: str) -> dict:
+    with open(file, encoding="utf-8") as f:
+        payload = json.load(f)
+
+    if not isinstance(payload, dict):
+        raise click.ClickException("Blueprint file must contain a JSON object")
+
+    blueprint = extract_blueprint(payload)
+    if not isinstance(blueprint, dict):
+        raise click.ClickException("Could not extract blueprint from file")
+    return blueprint
 
 
 @blueprints.command("export")
@@ -79,8 +93,14 @@ def import_blueprint(ctx, file, name, team_id, folder_id, folder_name, schedule_
         console.print("[red]Error: --team-id required (or set via 'boost configure --team-id')[/red]")
         raise SystemExit(1)
 
-    with open(file) as f:
-        blueprint = json.load(f)
+    try:
+        blueprint = _load_blueprint_file(file)
+    except click.ClickException as e:
+        if json_output:
+            emit_json(ok=False, error=str(e), meta={"command": "blueprints import"})
+            raise SystemExit(1)
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
 
     schedule_type = str(schedule_type).casefold()
     scenario_name = name or blueprint.get("name", "Imported Scenario")
@@ -141,15 +161,20 @@ def import_blueprint(ctx, file, name, team_id, folder_id, folder_name, schedule_
 @click.pass_context
 def validate_blueprint(ctx, file, json_output):
     """Validate a blueprint JSON file."""
-    with open(file) as f:
-        try:
-            blueprint = json.load(f)
-        except json.JSONDecodeError as e:
-            if json_output:
-                emit_json(ok=False, error=f"Invalid JSON: {e}", meta={"command": "blueprints validate"})
-                raise SystemExit(1)
-            console.print(f"[red]Invalid JSON: {e}[/red]")
+    try:
+        blueprint = _load_blueprint_file(file)
+    except json.JSONDecodeError as e:
+        if json_output:
+            emit_json(ok=False, error=f"Invalid JSON: {e}", meta={"command": "blueprints validate"})
             raise SystemExit(1)
+        console.print(f"[red]Invalid JSON: {e}[/red]")
+        raise SystemExit(1)
+    except click.ClickException as e:
+        if json_output:
+            emit_json(ok=False, error=str(e), meta={"command": "blueprints validate"})
+            raise SystemExit(1)
+        console.print(f"[red]{e}[/red]")
+        raise SystemExit(1)
 
     errors = []
     warnings = []
@@ -232,8 +257,14 @@ def update_blueprint(ctx, scenario_id, file, json_output):
     from .config import Config
     config: Config = ctx.obj["config"]
 
-    with open(file) as f:
-        blueprint = json.load(f)
+    try:
+        blueprint = _load_blueprint_file(file)
+    except click.ClickException as e:
+        if json_output:
+            emit_json(ok=False, error=str(e), meta={"command": "blueprints update"})
+            raise SystemExit(1)
+        console.print(f"[red]Error: {e}[/red]")
+        raise SystemExit(1)
 
     with APIClient(config) as client:
         try:
