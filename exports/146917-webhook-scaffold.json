@@ -1,0 +1,64 @@
+{
+  "flow": [
+    {
+      "id": 1,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": -310,
+          "y": -1
+        }
+      },
+      "parameters": {
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 2,
+      "mapper": {
+        "scope": "roundtrip",
+        "variables": [
+          {
+            "name": "lead_name",
+            "value": "{{1.name}}"
+          },
+          {
+            "name": "lead_email",
+            "value": "{{1.email}}"
+          },
+          {
+            "name": "lead_phone",
+            "value": "{{1.phone}}"
+          },
+          {
+            "name": "lead_source",
+            "value": "{{1.source}}"
+          }
+        ]
+      },
+      "module": "util:SetVariables",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": -30,
+          "y": 2
+        }
+      }
+    }
+  ],
+  "name": "Lead Capture - Webhook Scaffold",
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "slots": null,
+      "maxErrors": 3,
+      "roundtrips": 1
+    }
+  }
+}

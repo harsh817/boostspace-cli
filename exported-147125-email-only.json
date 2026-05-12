@@ -1,0 +1,349 @@
+{
+  "flow": [
+    {
+      "id": 72,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {
+            "hook": {
+              "data": {
+                "editable": "true"
+              },
+              "label": "My gateway-webhook webhook"
+            }
+          }
+        },
+        "advanced": true,
+        "designer": {
+          "x": -525,
+          "y": 1715
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "hook": 56088,
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 71,
+      "filter": {
+        "name": "Add to MailerCloud with Product Fields",
+        "conditions": [
+          [
+            {
+              "a": "{{3.price}}",
+              "o": "exist"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "name": "{{3.first_name}}",
+        "wHZE": "{{if(3.`10x Gifting Sense`; \"\"; \"\")}}",
+        "wHZf": "{{if(3.`How to Build Real Friendships at Any Stage of Life`; \"\"; \"\")}}",
+        "wHZu": "1",
+        "wHZw": "{{if(3.`Dirty Talk and Get Nudes`; \"\"; \"\")}}",
+        "wHZy": "{{if(3.`The Psychology Bundle`; \"\"; \"\")}}",
+        "yZKE": "{{3.order_id}}",
+        "yZKK": "{{if(3.`The Psychology Bundle`; \"\"; \"\")}}",
+        "yZKS": "{{if(3.`10x Gifting Sense`; \"\"; \"\")}}",
+        "yZKa": "{{if(3.`Dirty Talk and Get Nudes`; \"\"; \"\")}}",
+        "yZKf": "{{add(1; if(3.`Dirty Talk and Get Nudes`; 1; 0); if(3.`The Psychology Bundle`; 1; 0); if(3.`10x Gifting Sense`; 1; 0); if(3.`How to Build Real Friendships at Any Stage of Life`; 1; 0))}}",
+        "yZKu": "{{if(3.`How to Build Real Friendships at Any Stage of Life`; \"\"; \"\")}}",
+        "yZKw": "{{concat(\"<p>Hi \"; 3.first_name; \"</p>\"; \"<p>Your Bond Style products are ready. Here are your links:</p><ul>\"; \"<li><a href=\"\"https://bondstyle.in/offer\"\">Main Product</a></li>\"; if(3.`Dirty Talk and Get Nudes`; \"<li><a href=\"\"https://bondstyle.in/deliver/dirty-talk\"\">Dirty Talk and Get Nudes</a></li>\"; \"\"); if(3.`The Psychology Bundle`; \"<li><a href=\"\"https://bondstyle.in/deliver/psychology\"\">The Psychology Bundle</a></li>\"; \"\"); if(3.`10x Gifting Sense`; \"<li><a href=\"\"https://bondstyle.in/deliver/gifting\"\">10x Gifting Sense</a></li>\"; \"\"); if(3.`How to Build Real Friendships at Any Stage of Life`; \"<li><a href=\"\"https://bondstyle.in/deliver/friendships\"\">How to Build Real Friendships</a></li>\"; \"\"); \"</ul><p>Order ID: \"; 3.order_id; \"</p>\")}}",
+        "yZaZ": "1",
+        "email": "{{3.email}}",
+        "phone": "{{3.phone}}",
+        "list_id": "fyaySS",
+        "contact_type": "active"
+      },
+      "module": "mailercloud:AddContact",
+      "version": 1,
+      "metadata": {
+        "expect": [
+          {
+            "name": "list_id",
+            "type": "select",
+            "label": "List",
+            "required": true
+          },
+          {
+            "name": "contact_type",
+            "type": "select",
+            "label": "Contact Type",
+            "required": true,
+            "validate": {
+              "enum": [
+                "active",
+                "bounce",
+                "abuse",
+                "unsubscribe",
+                "suppressed",
+                "spam complaints"
+              ]
+            }
+          },
+          {
+            "name": "email",
+            "type": "email",
+            "label": "Email address",
+            "required": true
+          },
+          {
+            "name": "name",
+            "type": "text",
+            "label": "First name"
+          },
+          {
+            "name": "middle_name",
+            "type": "text",
+            "label": "Middle Name"
+          },
+          {
+            "name": "last_name",
+            "type": "text",
+            "label": "Last Name"
+          },
+          {
+            "name": "phone",
+            "type": "text",
+            "label": "Phone"
+          },
+          {
+            "name": "country",
+            "type": "text",
+            "label": "Country"
+          },
+          {
+            "name": "city",
+            "type": "text",
+            "label": "City"
+          },
+          {
+            "name": "state",
+            "type": "text",
+            "label": "State"
+          },
+          {
+            "name": "zip",
+            "type": "text",
+            "label": "ZIP"
+          },
+          {
+            "name": "job_title",
+            "type": "text",
+            "label": "Job Title"
+          },
+          {
+            "name": "industry",
+            "type": "text",
+            "label": "Industry"
+          },
+          {
+            "name": "department",
+            "type": "text",
+            "label": "Department"
+          },
+          {
+            "name": "organization",
+            "type": "text",
+            "label": "Organization"
+          },
+          {
+            "name": "salary",
+            "type": "text",
+            "label": "Salary"
+          },
+          {
+            "name": "yZKw",
+            "type": "text",
+            "label": "delivery_links_html"
+          },
+          {
+            "name": "yZKf",
+            "type": "text",
+            "label": "product_count"
+          },
+          {
+            "name": "yZKE",
+            "type": "text",
+            "label": "order_id"
+          },
+          {
+            "name": "yZKu",
+            "type": "text",
+            "label": "has_friend"
+          },
+          {
+            "name": "yZKS",
+            "type": "text",
+            "label": "has_10x"
+          },
+          {
+            "name": "yZKK",
+            "type": "text",
+            "label": "has_psy"
+          },
+          {
+            "name": "yZKa",
+            "type": "text",
+            "label": "has_dtgn"
+          },
+          {
+            "name": "yZaZ",
+            "type": "text",
+            "label": "has_fe"
+          },
+          {
+            "name": "HZyy",
+            "type": "text",
+            "label": "Coaching_call"
+          },
+          {
+            "name": "HKZK",
+            "type": "text",
+            "label": "Failed Payment"
+          },
+          {
+            "name": "wHZy",
+            "type": "text",
+            "label": "Women Psychology Mastery"
+          },
+          {
+            "name": "wHZH",
+            "type": "text",
+            "label": "Male Model"
+          },
+          {
+            "name": "wHZw",
+            "type": "text",
+            "label": "Dirty Talk 101"
+          },
+          {
+            "name": "wHZf",
+            "type": "text",
+            "label": "Convo Kickstarter"
+          },
+          {
+            "name": "wHZE",
+            "type": "text",
+            "label": "Meetup Architect"
+          },
+          {
+            "name": "wHZu",
+            "type": "text",
+            "label": "Call Cassanova"
+          }
+        ],
+        "restore": {
+          "expect": {
+            "list_id": {
+              "mode": "chose",
+              "label": "BSL-Delivery-Complete"
+            },
+            "contact_type": {
+              "mode": "chose",
+              "label": "Active"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "mailercloud"
+              },
+              "label": "My Mailercloud connection"
+            }
+          }
+        },
+        "designer": {
+          "x": 900,
+          "y": 1800,
+          "name": "MailerCloud Delivery",
+          "messages": [
+            {
+              "message": "Module references non-existing module '3'.",
+              "category": "reference",
+              "severity": "error"
+            }
+          ]
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:mailercloud",
+            "label": "Connection",
+            "required": true
+          }
+        ]
+      },
+      "parameters": {
+        "__IMTCONN__": 150524
+      }
+    }
+  ],
+  "name": "Single Delivery Email",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": [],
+      "samples": {
+        "17": {
+          "updates": {
+            "updatedRows": 1,
+            "updatedCells": 10,
+            "updatedRange": "'Purchase Data'!A5:K5",
+            "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+            "updatedColumns": 10
+          },
+          "rowNumber": 5,
+          "sheetName": "Purchase Data",
+          "tableRange": "'Purchase Data'!A1:O4",
+          "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+        },
+        "66": {
+          "updates": {
+            "updatedRows": 1,
+            "updatedCells": 11,
+            "updatedRange": "'Order Sheet'!A5:K5",
+            "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+            "updatedColumns": 11
+          },
+          "rowNumber": 5,
+          "sheetName": "Order Sheet",
+          "tableRange": "'Order Sheet'!A1:L4",
+          "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+        }
+      }
+    },
+    "scenario": {
+      "dlq": true,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 2,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

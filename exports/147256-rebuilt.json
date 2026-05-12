@@ -1,0 +1,606 @@
+{
+  "name": "BSL | PhonePe Failed Payments -> Sheets",
+  "flow": [
+    {
+      "id": 1,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {
+            "hook": {
+              "data": {
+                "editable": "true"
+              },
+              "label": "Anirudh Finance Webhook - Webpage"
+            }
+          }
+        },
+        "designer": {
+          "x": 0,
+          "y": 1050
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "hook": 56121,
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 2,
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "values": {
+          "0": "{{formatDate(1.timestamp; \"YYYY-MM-DD HH:mm:ss\")}}",
+          "1": "{{1.payload.metaInfo.udf1}}",
+          "2": "{{1.payload.metaInfo.udf2}}",
+          "3": "{{1.payload.metaInfo.udf3}}",
+          "4": "{{1.payload.amount}}",
+          "5": "{{coalesce(1.payload.errorContext.description; 1.payload.errorCode; get(1.payload.paymentDetails; 1).errorCode)}}",
+          "6": "{{formatDate(1.timestamp; \"DD/MM/YYYY\")}}",
+          "7": "{{1.payload.state}}",
+          "8": "",
+          "9": "{{formatDate(1.timestamp; \"YYYY-MM-DD\")}}"
+        },
+        "sheetId": "Failed Payment",
+        "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+        "includesHeaders": true,
+        "insertDataOption": "INSERT_ROWS",
+        "useColumnHeaders": false,
+        "valueInputOption": "USER_ENTERED",
+        "insertUnformatted": false
+      },
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "metadata": {
+        "expect": [
+          {
+            "name": "mode",
+            "type": "select",
+            "label": "Search Method",
+            "required": true,
+            "validate": {
+              "enum": [
+                "select",
+                "fromAll",
+                "map"
+              ]
+            }
+          },
+          {
+            "name": "insertUnformatted",
+            "type": "boolean",
+            "label": "Unformatted",
+            "required": true
+          },
+          {
+            "name": "valueInputOption",
+            "type": "select",
+            "label": "Value input option",
+            "validate": {
+              "enum": [
+                "USER_ENTERED",
+                "RAW"
+              ]
+            }
+          },
+          {
+            "name": "insertDataOption",
+            "type": "select",
+            "label": "Insert data option",
+            "validate": {
+              "enum": [
+                "INSERT_ROWS",
+                "OVERWRITE"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "type": "select",
+            "label": "Drive",
+            "required": true,
+            "validate": {
+              "enum": [
+                "drive",
+                "share",
+                "team"
+              ]
+            }
+          },
+          {
+            "name": "spreadsheetId",
+            "type": "file",
+            "label": "Spreadsheet Name",
+            "required": true
+          },
+          {
+            "name": "sheetId",
+            "type": "select",
+            "label": "Sheet Name",
+            "required": true
+          },
+          {
+            "name": "includesHeaders",
+            "type": "select",
+            "label": "Table contains headers",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "useColumnHeaders",
+            "type": "select",
+            "label": "Use column headers as IDs of the columns",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "values",
+            "spec": [
+              {
+                "name": "0",
+                "type": "text",
+                "label": "Date (A)"
+              },
+              {
+                "name": "1",
+                "type": "text",
+                "label": "Ad Spend (without GST) (B)"
+              },
+              {
+                "name": "2",
+                "type": "text",
+                "label": "Ad Spent (incl GST) (C)"
+              },
+              {
+                "name": "3",
+                "type": "text",
+                "label": "Impressions (D)"
+              },
+              {
+                "name": "4",
+                "type": "text",
+                "label": "Reach (E)"
+              },
+              {
+                "name": "5",
+                "type": "text",
+                "label": "CTR (all) (F)"
+              },
+              {
+                "name": "6",
+                "type": "text",
+                "label": "Unique Outbound (CTR) (G)"
+              },
+              {
+                "name": "7",
+                "type": "text",
+                "label": "Link Clicks (H)"
+              },
+              {
+                "name": "8",
+                "type": "text",
+                "label": "CPC (I)"
+              },
+              {
+                "name": "9",
+                "type": "text",
+                "label": "Unique Outbound Clicks (J)"
+              },
+              {
+                "name": "10",
+                "type": "text",
+                "label": "LPV (K)"
+              },
+              {
+                "name": "11",
+                "type": "text",
+                "label": "Cost of LPV (Total) (L)"
+              },
+              {
+                "name": "12",
+                "type": "text",
+                "label": "Click to View Ratio (LPVx100)/Unique Outbound Clicks (M)"
+              },
+              {
+                "name": "13",
+                "type": "text",
+                "label": "Sales (N)"
+              },
+              {
+                "name": "14",
+                "type": "text",
+                "label": "Sales Conversion % (Sales/LPV) (O)"
+              },
+              {
+                "name": "15",
+                "type": "text",
+                "label": "Total Revenue (P)"
+              },
+              {
+                "name": "16",
+                "type": "text",
+                "label": "Bump Conversion % (Bump 1 Sales/Total Sales) (Q)"
+              },
+              {
+                "name": "17",
+                "type": "text",
+                "label": "Bump 2 (R)"
+              },
+              {
+                "name": "18",
+                "type": "text",
+                "label": "Bump Conversion % (Bump 2 Sales/Total Sales) (S)"
+              },
+              {
+                "name": "19",
+                "type": "text",
+                "label": "Bump 3 (T)"
+              },
+              {
+                "name": "20",
+                "type": "text",
+                "label": "Bump Conversion % (Bump 3 Sales/Total Sales) (U)"
+              },
+              {
+                "name": "21",
+                "type": "text",
+                "label": "Bump 4 (V)"
+              },
+              {
+                "name": "22",
+                "type": "text",
+                "label": "Bump Conversion % (Bump 4 Sales/Total Sales) (W)"
+              },
+              {
+                "name": "23",
+                "type": "text",
+                "label": "Total Revenue  (X)"
+              },
+              {
+                "name": "24",
+                "type": "text",
+                "label": "Net Profit for the Day (Y)"
+              },
+              {
+                "name": "25",
+                "type": "text",
+                "label": "Average Order Value (Z)"
+              },
+              {
+                "name": "26",
+                "type": "text",
+                "label": "CPA (AA)"
+              }
+            ],
+            "type": "collection",
+            "label": "Values in columns",
+            "metadata": [
+              [
+                [
+                  "Date",
+                  "Ad Spend (without GST)",
+                  "Ad Spent (incl GST)",
+                  "Impressions",
+                  "Reach",
+                  "CTR (all)",
+                  "Unique Outbound (CTR)",
+                  "Link Clicks",
+                  "CPC",
+                  "Unique Outbound Clicks",
+                  "LPV",
+                  "Cost of LPV (Total)",
+                  "Click to View Ratio (LPVx100)/Unique Outbound Clicks",
+                  "Sales",
+                  "Sales Conversion % (Sales/LPV)",
+                  "Total Revenue",
+                  "Bump Conversion % (Bump 1 Sales/Total Sales)",
+                  "Bump 2",
+                  "Bump Conversion % (Bump 2 Sales/Total Sales)",
+                  "Bump 3",
+                  "Bump Conversion % (Bump 3 Sales/Total Sales)",
+                  "Bump 4",
+                  "Bump Conversion % (Bump 4 Sales/Total Sales)",
+                  "Total Revenue ",
+                  "Net Profit for the Day",
+                  "Average Order Value",
+                  "CPA"
+                ]
+              ]
+            ]
+          }
+        ],
+        "restore": {
+          "expect": {
+            "from": {
+              "label": "My Drive"
+            },
+            "mode": {
+              "label": "Search by path"
+            },
+            "sheetId": {
+              "label": "Media Buying Report"
+            },
+            "spreadsheetId": {
+              "path": [
+                "BSL Guide"
+              ]
+            },
+            "includesHeaders": {
+              "label": "Yes"
+            },
+            "insertDataOption": {
+              "mode": "chose",
+              "label": "Insert rows"
+            },
+            "useColumnHeaders": {
+              "label": "No",
+              "nested": [
+                {
+                  "name": "values",
+                  "spec": [
+                    {
+                      "name": "0",
+                      "type": "text",
+                      "label": "Date (A)"
+                    },
+                    {
+                      "name": "1",
+                      "type": "text",
+                      "label": "Ad Spend (without GST) (B)"
+                    },
+                    {
+                      "name": "2",
+                      "type": "text",
+                      "label": "Ad Spent (incl GST) (C)"
+                    },
+                    {
+                      "name": "3",
+                      "type": "text",
+                      "label": "Impressions (D)"
+                    },
+                    {
+                      "name": "4",
+                      "type": "text",
+                      "label": "Reach (E)"
+                    },
+                    {
+                      "name": "5",
+                      "type": "text",
+                      "label": "CTR (all) (F)"
+                    },
+                    {
+                      "name": "6",
+                      "type": "text",
+                      "label": "Unique Outbound (CTR) (G)"
+                    },
+                    {
+                      "name": "7",
+                      "type": "text",
+                      "label": "Link Clicks (H)"
+                    },
+                    {
+                      "name": "8",
+                      "type": "text",
+                      "label": "CPC (I)"
+                    },
+                    {
+                      "name": "9",
+                      "type": "text",
+                      "label": "Unique Outbound Clicks (J)"
+                    },
+                    {
+                      "name": "10",
+                      "type": "text",
+                      "label": "LPV (K)"
+                    },
+                    {
+                      "name": "11",
+                      "type": "text",
+                      "label": "Cost of LPV (Total) (L)"
+                    },
+                    {
+                      "name": "12",
+                      "type": "text",
+                      "label": "Click to View Ratio (LPVx100)/Unique Outbound Clicks (M)"
+                    },
+                    {
+                      "name": "13",
+                      "type": "text",
+                      "label": "Sales (N)"
+                    },
+                    {
+                      "name": "14",
+                      "type": "text",
+                      "label": "Sales Conversion % (Sales/LPV) (O)"
+                    },
+                    {
+                      "name": "15",
+                      "type": "text",
+                      "label": "Total Revenue (P)"
+                    },
+                    {
+                      "name": "16",
+                      "type": "text",
+                      "label": "Bump Conversion % (Bump 1 Sales/Total Sales) (Q)"
+                    },
+                    {
+                      "name": "17",
+                      "type": "text",
+                      "label": "Bump 2 (R)"
+                    },
+                    {
+                      "name": "18",
+                      "type": "text",
+                      "label": "Bump Conversion % (Bump 2 Sales/Total Sales) (S)"
+                    },
+                    {
+                      "name": "19",
+                      "type": "text",
+                      "label": "Bump 3 (T)"
+                    },
+                    {
+                      "name": "20",
+                      "type": "text",
+                      "label": "Bump Conversion % (Bump 3 Sales/Total Sales) (U)"
+                    },
+                    {
+                      "name": "21",
+                      "type": "text",
+                      "label": "Bump 4 (V)"
+                    },
+                    {
+                      "name": "22",
+                      "type": "text",
+                      "label": "Bump Conversion % (Bump 4 Sales/Total Sales) (W)"
+                    },
+                    {
+                      "name": "23",
+                      "type": "text",
+                      "label": "Total Revenue  (X)"
+                    },
+                    {
+                      "name": "24",
+                      "type": "text",
+                      "label": "Net Profit for the Day (Y)"
+                    },
+                    {
+                      "name": "25",
+                      "type": "text",
+                      "label": "Average Order Value (Z)"
+                    },
+                    {
+                      "name": "26",
+                      "type": "text",
+                      "label": "CPA (AA)"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "Values in columns",
+                  "metadata": [
+                    [
+                      [
+                        "Date",
+                        "Ad Spend (without GST)",
+                        "Ad Spent (incl GST)",
+                        "Impressions",
+                        "Reach",
+                        "CTR (all)",
+                        "Unique Outbound (CTR)",
+                        "Link Clicks",
+                        "CPC",
+                        "Unique Outbound Clicks",
+                        "LPV",
+                        "Cost of LPV (Total)",
+                        "Click to View Ratio (LPVx100)/Unique Outbound Clicks",
+                        "Sales",
+                        "Sales Conversion % (Sales/LPV)",
+                        "Total Revenue",
+                        "Bump Conversion % (Bump 1 Sales/Total Sales)",
+                        "Bump 2",
+                        "Bump Conversion % (Bump 2 Sales/Total Sales)",
+                        "Bump 3",
+                        "Bump Conversion % (Bump 3 Sales/Total Sales)",
+                        "Bump 4",
+                        "Bump Conversion % (Bump 4 Sales/Total Sales)",
+                        "Total Revenue ",
+                        "Net Profit for the Day",
+                        "Average Order Value",
+                        "CPA"
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            },
+            "valueInputOption": {
+              "mode": "chose",
+              "label": "User entered"
+            },
+            "insertUnformatted": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "My Google connection (hme4080@gmail.com)"
+            }
+          }
+        },
+        "designer": {
+          "x": 2256,
+          "y": -773
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:google",
+            "label": "Connection",
+            "required": true
+          }
+        ]
+      },
+      "parameters": {
+        "__IMTCONN__": 147240
+      },
+      "filter": {
+        "name": "PhonePe failed orders only",
+        "conditions": [
+          [
+            {
+              "a": "{{1.event}}",
+              "b": "checkout.order.failed",
+              "o": "text:equal"
+            },
+            {
+              "a": "{{1.payload.state}}",
+              "b": "FAILED",
+              "o": "text:equal"
+            }
+          ]
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "slots": null,
+      "maxErrors": 3,
+      "roundtrips": 1
+    }
+  }
+}

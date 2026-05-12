@@ -1,0 +1,73 @@
+{
+  "goal": "Generate a service agreement from webhook fields and return agreement text",
+  "createdAt": 1774000000,
+  "sources": [
+    {
+      "title": "Webhook trigger pattern",
+      "url": "https://www.make.com/en/help/tools/webhooks",
+      "summary": "Use a custom webhook to accept external payload fields from any automation source."
+    },
+    {
+      "title": "OpenAI completion module pattern",
+      "url": "https://www.make.com/en/help/app/openai-chatgpt",
+      "summary": "Create structured legal draft text with deterministic instructions and mapped input fields."
+    }
+  ],
+  "blueprint": {
+    "name": "Agreement Generator - Webhook to AI Response",
+    "flow": [
+      {
+        "id": 1,
+        "module": "gateway:CustomWebHook",
+        "version": 1,
+        "parameters": {
+          "maxResults": 1
+        },
+        "mapper": {}
+      },
+      {
+        "id": 2,
+        "module": "openai-gpt-3:CreateCompletion",
+        "version": 1,
+        "parameters": {
+          "__IMTCONN__": "{{connection_openai}}"
+        },
+        "mapper": {
+          "model": "gpt-4o-mini",
+          "temperature": 0.2,
+          "max_tokens": 2200,
+          "prompt": "You are a legal operations assistant. Draft a clear, professional service agreement using exactly the following fields. Do not invent missing values. If a value is missing, write [MISSING: field_name]. Return plain text only.\n\nClient Name: {{1.client_name}}\nClient Email: {{1.client_email}}\nProvider Name: {{1.provider_name}}\nService Name: {{1.service_name}}\nStart Date: {{1.start_date}}\nEnd Date: {{1.end_date}}\nFee Amount: {{1.fee_amount}}\nCurrency: {{1.currency}}\nPayment Terms: {{1.payment_terms}}\nJurisdiction: {{1.jurisdiction}}\nSpecial Terms: {{1.special_terms}}\n\nRequired sections in this order:\n1) Parties\n2) Scope of Services\n3) Term\n4) Fees and Payment\n5) Confidentiality\n6) Termination\n7) Limitation of Liability\n8) Governing Law\n9) Signature Blocks"
+        }
+      },
+      {
+        "id": 3,
+        "module": "gateway:WebhookRespond",
+        "version": 1,
+        "parameters": {
+          "status": 200
+        },
+        "mapper": {
+          "body": "{\"ok\":true,\"agreement_text\":\"{{2.result}}\"}",
+          "headers": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      }
+    ],
+    "metadata": {
+      "version": 1,
+      "scenario": {
+        "roundtrips": 1,
+        "maxErrors": 3
+      }
+    }
+  },
+  "notes": [
+    "This starter flow returns agreement text to the caller; you can add e-sign, PDF, or storage modules afterward.",
+    "Use sample input from examples/agreement-sample-payload.json for dry-run mapping and verification.",
+    "Validate first: boost scenario validate --file examples/sample-workflow-agreement-generator.json --check-auth"
+  ]
+}

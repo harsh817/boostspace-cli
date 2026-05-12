@@ -1,0 +1,90 @@
+{
+  "flow": [
+    {
+      "id": 1,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "maxResults": 1,
+        "hook": 56129
+      },
+      "metadata": {
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "filter": {
+        "name": "PhonePe failed orders only",
+        "conditions": [
+          [
+            {
+              "a": "{{1.event}}",
+              "b": "checkout.order.failed",
+              "o": "text:equal"
+            },
+            {
+              "a": "{{1.payload.state}}",
+              "b": "FAILED",
+              "o": "text:equal"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "values": {
+          "0": "{{1.timestamp}}",
+          "1": "{{1.payload.metaInfo.udf1}}",
+          "2": "{{1.payload.metaInfo.udf2}}",
+          "3": "{{1.payload.metaInfo.udf3}}",
+          "4": "{{1.payload.amount}}",
+          "5": "{{1.payload.errorCode}}",
+          "6": "{{1.timestamp}}",
+          "7": "{{1.payload.state}}",
+          "8": "",
+          "9": "{{1.timestamp}}"
+        },
+        "sheetId": "Failed Payment",
+        "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+        "includesHeaders": true,
+        "insertDataOption": "INSERT_ROWS",
+        "useColumnHeaders": false,
+        "valueInputOption": "USER_ENTERED",
+        "insertUnformatted": false
+      },
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "parameters": {
+        "__IMTCONN__": 147240
+      }
+    }
+  ],
+  "name": "BSL | PhonePe Failed Payments -> Sheets (v4 stable)",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "slots": null,
+      "maxErrors": 3,
+      "roundtrips": 1
+    }
+  }
+}

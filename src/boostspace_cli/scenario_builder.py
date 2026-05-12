@@ -1604,12 +1604,19 @@ def scenario_deploy(
             stage_timings["createScenario"] = round(time.perf_counter() - t_create, 3)
             created = result.get("scenario", result)
             created_id = int(created.get("id"))
+            created_active = bool(created.get("isActive", created.get("active", False)))
 
             t_lifecycle = time.perf_counter()
-            if not inactive:
+            if not inactive and not created_active:
                 client.start_scenario(created_id)
-            if inactive:
-                client.stop_scenario(created_id)
+                created_active = True
+            if inactive and created_active:
+                try:
+                    client.stop_scenario(created_id)
+                except APIError as lifecycle_exc:
+                    if lifecycle_exc.code != "IM307":
+                        raise
+                created_active = False
             stage_timings["lifecycle"] = round(time.perf_counter() - t_lifecycle, 3)
 
             verify_result: dict[str, object] = {

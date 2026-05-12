@@ -1,0 +1,65 @@
+{
+  "flow": [
+    {
+      "id": 2,
+      "module": "hubspotcrm:WatchFormSubmissions",
+      "version": 2,
+      "metadata": {
+        "designer": {
+          "x": -346,
+          "y": 37,
+          "messages": [
+            {
+              "message": "Value must not be empty.",
+              "category": "setup",
+              "severity": "error"
+            },
+            {
+              "message": "You must first choose from which point do you want to start processing your emails.",
+              "category": "epochreq",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "google-email:sendAnEmail",
+      "version": 4,
+      "metadata": {
+        "designer": {
+          "x": -46,
+          "y": 37,
+          "messages": [
+            {
+              "message": "Value must not be empty.",
+              "category": "setup",
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "name": "Integration HubSpot CRM",
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "dlq": false,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

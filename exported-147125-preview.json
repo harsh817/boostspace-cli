@@ -1,0 +1,980 @@
+{
+  "flow": [
+    {
+      "id": 3,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {}
+        },
+        "designer": {
+          "x": 0,
+          "y": 1650
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 39,
+      "mapper": null,
+      "module": "builtin:BasicRouter",
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 5,
+              "filter": {
+                "name": "Delivery Candidate",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.price}}",
+                      "o": "exist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "name": "{{3.first_name}}",
+                "email": "{{3.email}}",
+                "phone": "{{3.phone}}",
+                "list_id": "uauKEa",
+                "contact_type": "active"
+              },
+              "module": "mailercloud:AddContact",
+              "onerror": [
+                {
+                  "id": 57,
+                  "module": "builtin:Ignore",
+                  "version": 1,
+                  "metadata": {
+                    "designer": {
+                      "x": 900,
+                      "y": 0
+                    }
+                  }
+                }
+              ],
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "list_id",
+                    "type": "select",
+                    "label": "List",
+                    "required": true
+                  },
+                  {
+                    "name": "contact_type",
+                    "type": "select",
+                    "label": "Contact Type",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "active",
+                        "bounce",
+                        "abuse",
+                        "unsubscribe",
+                        "suppressed",
+                        "spam complaints"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "email",
+                    "type": "email",
+                    "label": "Email address",
+                    "required": true
+                  },
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": "First name"
+                  },
+                  {
+                    "name": "middle_name",
+                    "type": "text",
+                    "label": "Middle Name"
+                  },
+                  {
+                    "name": "last_name",
+                    "type": "text",
+                    "label": "Last Name"
+                  },
+                  {
+                    "name": "phone",
+                    "type": "text",
+                    "label": "Phone"
+                  },
+                  {
+                    "name": "country",
+                    "type": "text",
+                    "label": "Country"
+                  },
+                  {
+                    "name": "city",
+                    "type": "text",
+                    "label": "City"
+                  },
+                  {
+                    "name": "state",
+                    "type": "text",
+                    "label": "State"
+                  },
+                  {
+                    "name": "zip",
+                    "type": "text",
+                    "label": "ZIP"
+                  },
+                  {
+                    "name": "job_title",
+                    "type": "text",
+                    "label": "Job Title"
+                  },
+                  {
+                    "name": "industry",
+                    "type": "text",
+                    "label": "Industry"
+                  },
+                  {
+                    "name": "department",
+                    "type": "text",
+                    "label": "Department"
+                  },
+                  {
+                    "name": "organization",
+                    "type": "text",
+                    "label": "Organization"
+                  },
+                  {
+                    "name": "salary",
+                    "type": "text",
+                    "label": "Salary"
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "list_id": {
+                      "mode": "chose",
+                      "label": "BS - FE - Success"
+                    },
+                    "contact_type": {
+                      "mode": "chose",
+                      "label": "Active"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "mailercloud"
+                      },
+                      "label": "My Mailercloud connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 0
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:mailercloud",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 150524
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 41,
+              "filter": {
+                "name": "Single Delivery Fields",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.price}}",
+                      "o": "exist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "name": "{{3.first_name}}",
+                "wHZE": "{{if(3.`10x Gifting Sense`; 'https://bondstyle.in/deliver/gifting'; '')}}",
+                "wHZf": "{{if(3.`How to Build Real Friendships at Any Stage of Life`; 'https://bondstyle.in/deliver/friendships'; '')}}",
+                "wHZu": "https://bondstyle.in/offer",
+                "wHZw": "{{if(3.`Dirty Talk and Get Nudes`; 'https://bondstyle.in/deliver/dirty-talk'; '')}}",
+                "wHZy": "{{if(3.`The Psychology Bundle`; 'https://bondstyle.in/deliver/psychology'; '')}}",
+                "email": "{{3.email}}",
+                "contact_type": "active"
+              },
+              "module": "mailercloud:UpdateContact",
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "contact_type",
+                    "type": "select",
+                    "label": "Contact Type",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "active",
+                        "bounce",
+                        "abuse",
+                        "unsubscribe",
+                        "suppressed",
+                        "spam complaints"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "email",
+                    "type": "email",
+                    "label": "Email address",
+                    "required": true
+                  },
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": "First name"
+                  },
+                  {
+                    "name": "wHZy",
+                    "type": "text",
+                    "label": "Women Psychology Mastery"
+                  },
+                  {
+                    "name": "wHZH",
+                    "type": "text",
+                    "label": "Male Model"
+                  },
+                  {
+                    "name": "wHZw",
+                    "type": "text",
+                    "label": "Dirty Talk 101"
+                  },
+                  {
+                    "name": "wHZf",
+                    "type": "text",
+                    "label": "Convo Kickstarter"
+                  },
+                  {
+                    "name": "wHZE",
+                    "type": "text",
+                    "label": "Meetup Architect"
+                  },
+                  {
+                    "name": "wHZu",
+                    "type": "text",
+                    "label": "Call Cassanova"
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "contact_type": {
+                      "mode": "chose",
+                      "label": "Active"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "mailercloud"
+                      },
+                      "label": "My Mailercloud connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 300
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:mailercloud",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 150524
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 17,
+              "filter": {
+                "name": "",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.price}}",
+                      "o": "exist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "from": "drive",
+                "mode": "select",
+                "values": {
+                  "0": "{{3.datetime}}",
+                  "1": "{{3.first_name}}",
+                  "2": "{{3.email}}",
+                  "3": "{{3.phone}}",
+                  "4": "{{ifempty(3.sales_page_url; 3.sales_page_path)}}",
+                  "5": "{{ifempty(3.total_price; 3.price)}}",
+                  "6": "{{3.utm_source}}",
+                  "7": "{{3.utm_campaign}}",
+                  "8": "{{3.utm_medium}}",
+                  "9": "{{3.utm_content}}",
+                  "10": "{{3.utm_term}}",
+                  "11": "{{3.datetime}}",
+                  "12": "{{3.sales_page_path}}"
+                },
+                "sheetId": "Purchase Data",
+                "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+                "includesHeaders": true,
+                "insertDataOption": "INSERT_ROWS",
+                "useColumnHeaders": false,
+                "valueInputOption": "USER_ENTERED",
+                "insertUnformatted": false
+              },
+              "module": "google-sheets:addRow",
+              "version": 2,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "from": {
+                      "label": "My Drive"
+                    },
+                    "mode": {
+                      "label": "Search by path"
+                    },
+                    "sheetId": {
+                      "label": "Purchase Data"
+                    },
+                    "spreadsheetId": {
+                      "path": [
+                        "BSL Guide"
+                      ]
+                    },
+                    "includesHeaders": {
+                      "label": "Yes"
+                    },
+                    "insertDataOption": {
+                      "mode": "chose",
+                      "label": "Insert rows"
+                    },
+                    "useColumnHeaders": {
+                      "label": "No",
+                      "nested": []
+                    },
+                    "valueInputOption": {
+                      "mode": "chose",
+                      "label": "User entered"
+                    },
+                    "insertUnformatted": {
+                      "mode": "chose"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "google"
+                      },
+                      "label": "My Google connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 600,
+                  "name": "Purchase Sheet"
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:google",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 166837
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 66,
+              "mapper": {
+                "from": "drive",
+                "mode": "select",
+                "values": {
+                  "0": "{{3.datetime}}",
+                  "1": "{{3.first_name}}",
+                  "2": "{{3.email}}",
+                  "3": "{{3.phone}}",
+                  "4": "{{3.product_title}}",
+                  "5": "{{3.`Dirty Talk and Get Nudes_price`}}",
+                  "6": "{{3.`How to Build Real Friendships at Any Stage of Life_price`}}",
+                  "7": "{{3.`The Psychology Bundle_price`}}",
+                  "8": "{{3.`10x Gifting Sense_price`}}",
+                  "9": "{{ifempty(3.total_price; 3.price)}}",
+                  "10": "{{3.order_id}}"
+                },
+                "sheetId": "Order Sheet",
+                "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+                "includesHeaders": true,
+                "insertDataOption": "INSERT_ROWS",
+                "useColumnHeaders": false,
+                "valueInputOption": "USER_ENTERED",
+                "insertUnformatted": false
+              },
+              "module": "google-sheets:addRow",
+              "version": 2,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "from": {
+                      "label": "My Drive"
+                    },
+                    "mode": {
+                      "label": "Search by path"
+                    },
+                    "sheetId": {
+                      "label": "Order Sheet"
+                    },
+                    "spreadsheetId": {
+                      "path": [
+                        "BSL Guide"
+                      ]
+                    },
+                    "includesHeaders": {
+                      "label": "Yes"
+                    },
+                    "insertDataOption": {
+                      "mode": "chose",
+                      "label": "Insert rows"
+                    },
+                    "useColumnHeaders": {
+                      "label": "No",
+                      "nested": []
+                    },
+                    "valueInputOption": {
+                      "mode": "chose",
+                      "label": "User entered"
+                    },
+                    "insertUnformatted": {
+                      "mode": "chose"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "google"
+                      },
+                      "label": "My Google connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 900,
+                  "name": "Order Sheet"
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:google",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 166838
+              }
+            }
+          ]
+        }
+      ],
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 1650
+        }
+      }
+    }
+  ],
+  "name": "Harsh - Bond Style | Purchase | Single Delivery Preview",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": [],
+      "samples": {
+        "3": {
+          "email": "akmishra3121@gmail.com",
+          "phone": "+919355494359",
+          "price": "497",
+          "utm_id": "",
+          "currency": "INR",
+          "datetime": "8/4/2026, 9:38:09 pm",
+          "order_id": "ORD-906180EA215C444789DA",
+          "utm_flow": "",
+          "utm_term": "",
+          "first_name": "Abhishek",
+          "product_id": "bond-style-main",
+          "utm_medium": "",
+          "utm_source": "",
+          "total_price": "2291",
+          "utm_content": "",
+          "items_source": "status_endpoint",
+          "pricing_type": "2",
+          "utm_campaign": "",
+          "product_title": "Bond Style Communication Guide",
+          "sales_page_id": "",
+          "sales_page_url": "",
+          "transaction_id": "OM2604082137471531935234V",
+          "sales_page_path": "/offer",
+          "total_bump_price": 1794,
+          "10x Gifting Sense": 1,
+          "The Psychology Bundle": 1,
+          "10x Gifting Sense_price": "399.00",
+          "Dirty Talk and Get Nudes": 1,
+          "The Psychology Bundle_price": "497.00",
+          "Dirty Talk and Get Nudes_price": "499.00",
+          "How to Build Real Friendships at Any Stage of Life": 1,
+          "How to Build Real Friendships at Any Stage of Life_price": "399.00"
+        },
+        "17": {
+          "updates": {
+            "updatedRange": "'Purchase Data'!A2",
+            "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+          },
+          "rowNumber": 2,
+          "sheetName": "Purchase Data",
+          "tableRange": "'Purchase Data'!A1:O1",
+          "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+        }
+      }
+    },
+    "scenario": {
+      "dlq": true,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

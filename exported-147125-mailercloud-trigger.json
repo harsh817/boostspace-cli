@@ -1,0 +1,1148 @@
+{
+  "flow": [
+    {
+      "id": 3,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {}
+        },
+        "designer": {
+          "x": -525,
+          "y": 1715
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 17,
+      "filter": {
+        "name": "Log Purchase Sheet",
+        "conditions": [
+          [
+            {
+              "a": "{{3.price}}",
+              "o": "exist"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "values": {
+          "Name": "{{3.first_name}}",
+          "Email": "{{3.email}}",
+          "Number": "{{3.phone}}",
+          "UTM Term": "{{3.utm_term}}",
+          "Timestamp": "{{3.datetime}}",
+          "Total Rev": "{{3.total_price}}",
+          "UTM Medium": "{{3.utm_medium}}",
+          "UTM Source": "{{3.utm_source}}",
+          "UTM Content": "{{3.utm_content}}",
+          "UTM Campaign": "{{3.utm_campaign}}"
+        },
+        "sheetId": "Purchase Data",
+        "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+        "includesHeaders": true,
+        "insertDataOption": "INSERT_ROWS",
+        "useColumnHeaders": true,
+        "valueInputOption": "USER_ENTERED",
+        "insertUnformatted": false
+      },
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "metadata": {
+        "expect": [
+          {
+            "name": "mode",
+            "type": "select",
+            "label": "Search Method",
+            "required": true,
+            "validate": {
+              "enum": [
+                "select",
+                "fromAll",
+                "map"
+              ]
+            }
+          },
+          {
+            "name": "insertUnformatted",
+            "type": "boolean",
+            "label": "Unformatted",
+            "required": true
+          },
+          {
+            "name": "valueInputOption",
+            "type": "select",
+            "label": "Value input option",
+            "validate": {
+              "enum": [
+                "USER_ENTERED",
+                "RAW"
+              ]
+            }
+          },
+          {
+            "name": "insertDataOption",
+            "type": "select",
+            "label": "Insert data option",
+            "validate": {
+              "enum": [
+                "INSERT_ROWS",
+                "OVERWRITE"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "type": "select",
+            "label": "Drive",
+            "required": true,
+            "validate": {
+              "enum": [
+                "drive",
+                "share",
+                "team"
+              ]
+            }
+          },
+          {
+            "name": "spreadsheetId",
+            "type": "file",
+            "label": "Spreadsheet Name",
+            "required": true
+          },
+          {
+            "name": "sheetId",
+            "type": "select",
+            "label": "Sheet Name",
+            "required": true
+          },
+          {
+            "name": "includesHeaders",
+            "type": "select",
+            "label": "Table contains headers",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "useColumnHeaders",
+            "type": "select",
+            "label": "Use column headers as IDs of the columns",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "values",
+            "spec": [
+              {
+                "name": "Timestamp",
+                "type": "text",
+                "label": "Timestamp (A)"
+              },
+              {
+                "name": "Name",
+                "type": "text",
+                "label": "Name (B)"
+              },
+              {
+                "name": "Email",
+                "type": "text",
+                "label": "Email (C)"
+              },
+              {
+                "name": "Number",
+                "type": "text",
+                "label": "Number (D)"
+              },
+              {
+                "name": "Source URL",
+                "type": "text",
+                "label": "Source URL (E)"
+              },
+              {
+                "name": "Total Rev",
+                "type": "text",
+                "label": "Total Rev (F)"
+              },
+              {
+                "name": "UTM Source",
+                "type": "text",
+                "label": "UTM Source (G)"
+              },
+              {
+                "name": "UTM Campaign",
+                "type": "text",
+                "label": "UTM Campaign (H)"
+              },
+              {
+                "name": "UTM Medium",
+                "type": "text",
+                "label": "UTM Medium (I)"
+              },
+              {
+                "name": "UTM Content",
+                "type": "text",
+                "label": "UTM Content (J)"
+              },
+              {
+                "name": "UTM Term",
+                "type": "text",
+                "label": "UTM Term (K)"
+              },
+              {
+                "name": "Date",
+                "type": "text",
+                "label": "Date (L)"
+              },
+              {
+                "name": "LP",
+                "type": "text",
+                "label": "LP (M)"
+              },
+              {
+                "name": "Purchase Type",
+                "type": "text",
+                "label": "Purchase Type (N)"
+              },
+              {
+                "name": "WA SENT",
+                "type": "text",
+                "label": "WA SENT (O)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(P)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(Q)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(R)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(S)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(T)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(U)"
+              }
+            ],
+            "type": "collection",
+            "label": "Values in columns",
+            "metadata": [
+              [
+                [
+                  "Timestamp",
+                  "Name",
+                  "Email",
+                  "Number",
+                  "Source URL",
+                  "Total Rev",
+                  "UTM Source",
+                  "UTM Campaign",
+                  "UTM Medium",
+                  "UTM Content",
+                  "UTM Term",
+                  "Date",
+                  "LP",
+                  "Purchase Type",
+                  "WA SENT"
+                ]
+              ]
+            ]
+          }
+        ],
+        "restore": {
+          "expect": {
+            "from": {
+              "label": "My Drive"
+            },
+            "mode": {
+              "label": "Search by path"
+            },
+            "sheetId": {
+              "label": "Purchase Data"
+            },
+            "spreadsheetId": {
+              "path": [
+                "BSL Guide"
+              ]
+            },
+            "includesHeaders": {
+              "label": "Yes"
+            },
+            "insertDataOption": {
+              "mode": "chose",
+              "label": "Insert rows"
+            },
+            "useColumnHeaders": {
+              "label": "Yes",
+              "nested": [
+                {
+                  "name": "values",
+                  "spec": [
+                    {
+                      "name": "Timestamp",
+                      "type": "text",
+                      "label": "Timestamp (A)"
+                    },
+                    {
+                      "name": "Name",
+                      "type": "text",
+                      "label": "Name (B)"
+                    },
+                    {
+                      "name": "Email",
+                      "type": "text",
+                      "label": "Email (C)"
+                    },
+                    {
+                      "name": "Number",
+                      "type": "text",
+                      "label": "Number (D)"
+                    },
+                    {
+                      "name": "Source URL",
+                      "type": "text",
+                      "label": "Source URL (E)"
+                    },
+                    {
+                      "name": "Total Rev",
+                      "type": "text",
+                      "label": "Total Rev (F)"
+                    },
+                    {
+                      "name": "UTM Source",
+                      "type": "text",
+                      "label": "UTM Source (G)"
+                    },
+                    {
+                      "name": "UTM Campaign",
+                      "type": "text",
+                      "label": "UTM Campaign (H)"
+                    },
+                    {
+                      "name": "UTM Medium",
+                      "type": "text",
+                      "label": "UTM Medium (I)"
+                    },
+                    {
+                      "name": "UTM Content",
+                      "type": "text",
+                      "label": "UTM Content (J)"
+                    },
+                    {
+                      "name": "UTM Term",
+                      "type": "text",
+                      "label": "UTM Term (K)"
+                    },
+                    {
+                      "name": "Date",
+                      "type": "text",
+                      "label": "Date (L)"
+                    },
+                    {
+                      "name": "LP",
+                      "type": "text",
+                      "label": "LP (M)"
+                    },
+                    {
+                      "name": "Purchase Type",
+                      "type": "text",
+                      "label": "Purchase Type (N)"
+                    },
+                    {
+                      "name": "WA SENT",
+                      "type": "text",
+                      "label": "WA SENT (O)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(P)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(Q)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(R)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(S)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(T)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(U)"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "Values in columns",
+                  "metadata": [
+                    [
+                      [
+                        "Timestamp",
+                        "Name",
+                        "Email",
+                        "Number",
+                        "Source URL",
+                        "Total Rev",
+                        "UTM Source",
+                        "UTM Campaign",
+                        "UTM Medium",
+                        "UTM Content",
+                        "UTM Term",
+                        "Date",
+                        "LP",
+                        "Purchase Type",
+                        "WA SENT"
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            },
+            "valueInputOption": {
+              "mode": "chose",
+              "label": "User entered"
+            },
+            "insertUnformatted": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "My Google connection (hme4080@gmail.com)"
+            }
+          }
+        },
+        "designer": {
+          "x": 34,
+          "y": 1755,
+          "name": "Purchase Sheet"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:google",
+            "label": "Connection",
+            "required": true
+          }
+        ]
+      },
+      "parameters": {
+        "__IMTCONN__": 166837
+      }
+    },
+    {
+      "id": 66,
+      "filter": {
+        "name": "Log Order Sheet",
+        "conditions": [
+          [
+            {
+              "a": "{{3.price}}",
+              "o": "exist"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "values": {
+          "FE": "{{3.price}}",
+          "PB": "{{3.`The Psychology Bundle_price`}}",
+          "10X": "{{3.`10x Gifting Sense_price`}}",
+          "Date": "{{3.datetime}}",
+          "FRND": "{{3.`How to Build Real Friendships at Any Stage of Life_price`}}",
+          "Name": "{{3.first_name}}",
+          "DT+GN": "{{3.`Dirty Talk and Get Nudes_price`}}",
+          "Email": "{{3.email}}",
+          "Total": "{{3.total_price}}",
+          "Number": "{{3.phone}}",
+          "Order ID": "{{3.order_id}}"
+        },
+        "sheetId": "Order Sheet",
+        "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+        "includesHeaders": true,
+        "insertDataOption": "INSERT_ROWS",
+        "useColumnHeaders": true,
+        "valueInputOption": "USER_ENTERED",
+        "insertUnformatted": false
+      },
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "metadata": {
+        "expect": [
+          {
+            "name": "mode",
+            "type": "select",
+            "label": "Search Method",
+            "required": true,
+            "validate": {
+              "enum": [
+                "select",
+                "fromAll",
+                "map"
+              ]
+            }
+          },
+          {
+            "name": "insertUnformatted",
+            "type": "boolean",
+            "label": "Unformatted",
+            "required": true
+          },
+          {
+            "name": "valueInputOption",
+            "type": "select",
+            "label": "Value input option",
+            "validate": {
+              "enum": [
+                "USER_ENTERED",
+                "RAW"
+              ]
+            }
+          },
+          {
+            "name": "insertDataOption",
+            "type": "select",
+            "label": "Insert data option",
+            "validate": {
+              "enum": [
+                "INSERT_ROWS",
+                "OVERWRITE"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "type": "select",
+            "label": "Drive",
+            "required": true,
+            "validate": {
+              "enum": [
+                "drive",
+                "share",
+                "team"
+              ]
+            }
+          },
+          {
+            "name": "spreadsheetId",
+            "type": "file",
+            "label": "Spreadsheet Name",
+            "required": true
+          },
+          {
+            "name": "sheetId",
+            "type": "select",
+            "label": "Sheet Name",
+            "required": true
+          },
+          {
+            "name": "includesHeaders",
+            "type": "select",
+            "label": "Table contains headers",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "useColumnHeaders",
+            "type": "select",
+            "label": "Use column headers as IDs of the columns",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "values",
+            "spec": [
+              {
+                "name": "Date",
+                "type": "text",
+                "label": "Date (A)"
+              },
+              {
+                "name": "Name",
+                "type": "text",
+                "label": "Name (B)"
+              },
+              {
+                "name": "Email",
+                "type": "text",
+                "label": "Email (C)"
+              },
+              {
+                "name": "Number",
+                "type": "text",
+                "label": "Number (D)"
+              },
+              {
+                "name": "FE",
+                "type": "text",
+                "label": "FE (E)"
+              },
+              {
+                "name": "DT+GN",
+                "type": "text",
+                "label": "DT+GN (F)"
+              },
+              {
+                "name": "PB",
+                "type": "text",
+                "label": "PB (G)"
+              },
+              {
+                "name": "10X",
+                "type": "text",
+                "label": "10X (H)"
+              },
+              {
+                "name": "FRND",
+                "type": "text",
+                "label": "FRND (I)"
+              },
+              {
+                "name": "Total",
+                "type": "text",
+                "label": "Total (J)"
+              },
+              {
+                "name": "Order ID",
+                "type": "text",
+                "label": "Order ID (K)"
+              },
+              {
+                "name": "Notes",
+                "type": "text",
+                "label": "Notes (L)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(M)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(N)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(O)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(P)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(Q)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(R)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(S)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(T)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(U)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(V)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(W)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(X)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(Y)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(Z)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(AA)"
+              },
+              {
+                "name": "undefined",
+                "type": "text",
+                "label": "(AB)"
+              }
+            ],
+            "type": "collection",
+            "label": "Values in columns",
+            "metadata": [
+              [
+                [
+                  "Date",
+                  "Name",
+                  "Email",
+                  "Number",
+                  "FE",
+                  "DT+GN",
+                  "PB",
+                  "10X",
+                  "FRND",
+                  "Total",
+                  "Order ID",
+                  "Notes"
+                ]
+              ]
+            ]
+          }
+        ],
+        "restore": {
+          "expect": {
+            "from": {
+              "label": "My Drive"
+            },
+            "mode": {
+              "label": "Search by path"
+            },
+            "sheetId": {
+              "label": "Order Sheet"
+            },
+            "spreadsheetId": {
+              "path": [
+                "BSL Guide"
+              ]
+            },
+            "includesHeaders": {
+              "label": "Yes"
+            },
+            "insertDataOption": {
+              "mode": "chose",
+              "label": "Insert rows"
+            },
+            "useColumnHeaders": {
+              "label": "Yes",
+              "nested": [
+                {
+                  "name": "values",
+                  "spec": [
+                    {
+                      "name": "Date",
+                      "type": "text",
+                      "label": "Date (A)"
+                    },
+                    {
+                      "name": "Name",
+                      "type": "text",
+                      "label": "Name (B)"
+                    },
+                    {
+                      "name": "Email",
+                      "type": "text",
+                      "label": "Email (C)"
+                    },
+                    {
+                      "name": "Number",
+                      "type": "text",
+                      "label": "Number (D)"
+                    },
+                    {
+                      "name": "FE",
+                      "type": "text",
+                      "label": "FE (E)"
+                    },
+                    {
+                      "name": "DT+GN",
+                      "type": "text",
+                      "label": "DT+GN (F)"
+                    },
+                    {
+                      "name": "PB",
+                      "type": "text",
+                      "label": "PB (G)"
+                    },
+                    {
+                      "name": "10X",
+                      "type": "text",
+                      "label": "10X (H)"
+                    },
+                    {
+                      "name": "FRND",
+                      "type": "text",
+                      "label": "FRND (I)"
+                    },
+                    {
+                      "name": "Total",
+                      "type": "text",
+                      "label": "Total (J)"
+                    },
+                    {
+                      "name": "Order ID",
+                      "type": "text",
+                      "label": "Order ID (K)"
+                    },
+                    {
+                      "name": "Notes",
+                      "type": "text",
+                      "label": "Notes (L)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(M)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(N)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(O)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(P)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(Q)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(R)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(S)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(T)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(U)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(V)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(W)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(X)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(Y)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(Z)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(AA)"
+                    },
+                    {
+                      "name": "undefined",
+                      "type": "text",
+                      "label": "(AB)"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "Values in columns",
+                  "metadata": [
+                    [
+                      [
+                        "Date",
+                        "Name",
+                        "Email",
+                        "Number",
+                        "FE",
+                        "DT+GN",
+                        "PB",
+                        "10X",
+                        "FRND",
+                        "Total",
+                        "Order ID",
+                        "Notes"
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            },
+            "valueInputOption": {
+              "mode": "chose",
+              "label": "User entered"
+            },
+            "insertUnformatted": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "My Google connection (hme4080@gmail.com)"
+            }
+          }
+        },
+        "designer": {
+          "x": 439,
+          "y": 1755,
+          "name": "Order Sheet"
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:google",
+            "label": "Connection",
+            "required": true
+          }
+        ]
+      },
+      "parameters": {
+        "__IMTCONN__": 166838
+      }
+    },
+    {
+      "id": 71,
+      "filter": {
+        "name": "Add to MailerCloud with Product Fields",
+        "conditions": [
+          [
+            {
+              "a": "{{3.price}}",
+              "o": "exist"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "name": "{{3.first_name}}",
+        "wHZE": "{{if(3.`10x Gifting Sense`; '1'; '0')}}",
+        "wHZf": "{{if(3.`How to Build Real Friendships at Any Stage of Life`; '1'; '0')}}",
+        "wHZu": "1",
+        "wHZw": "{{if(3.`Dirty Talk and Get Nudes`; '1'; '0')}}",
+        "wHZy": "{{if(3.`The Psychology Bundle`; '1'; '0')}}",
+        "yZKE": "{{3.order_id}}",
+        "yZKK": "{{if(3.`The Psychology Bundle`; '1'; '0')}}",
+        "yZKS": "{{if(3.`10x Gifting Sense`; '1'; '0')}}",
+        "yZKa": "{{if(3.`Dirty Talk and Get Nudes`; '1'; '0')}}",
+        "yZKf": "{{add(1; if(3.`Dirty Talk and Get Nudes`; 1; 0); if(3.`The Psychology Bundle`; 1; 0); if(3.`10x Gifting Sense`; 1; 0); if(3.`How to Build Real Friendships at Any Stage of Life`; 1; 0))}}",
+        "yZKu": "{{if(3.`How to Build Real Friendships at Any Stage of Life`; '1'; '0')}}",
+        "yZaZ": "1",
+        "email": "{{3.email}}",
+        "phone": "{{3.phone}}",
+        "list_id": "fyaySS",
+        "wHZu_oid": "{{3.order_id}}",
+        "wHZu_pcount": "1",
+        "contact_type": "active"
+      },
+      "module": "mailercloud:AddContact",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 1800,
+          "name": "MailerCloud Delivery"
+        }
+      }
+    }
+  ],
+  "name": "Single Delivery Email",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": [],
+      "samples": {
+        "3": {
+          "email": "akmishra3121@gmail.com",
+          "phone": "+919355494359",
+          "price": "497",
+          "utm_id": "",
+          "currency": "INR",
+          "datetime": "8/4/2026, 9:38:09 pm",
+          "order_id": "ORD-906180EA215C444789DA",
+          "utm_flow": "",
+          "utm_term": "",
+          "first_name": "Abhishek",
+          "product_id": "bond-style-main",
+          "utm_medium": "",
+          "utm_source": "",
+          "total_price": "2291",
+          "utm_content": "",
+          "items_source": "status_endpoint",
+          "pricing_type": "2",
+          "utm_campaign": "",
+          "product_title": "Bond Style Communication Guide",
+          "sales_page_id": "",
+          "sales_page_url": "",
+          "transaction_id": "OM2604082137471531935234V",
+          "sales_page_path": "/offer",
+          "total_bump_price": 1794,
+          "10x Gifting Sense": 1,
+          "The Psychology Bundle": 1,
+          "10x Gifting Sense_price": "399.00",
+          "Dirty Talk and Get Nudes": 1,
+          "The Psychology Bundle_price": "497.00",
+          "Dirty Talk and Get Nudes_price": "499.00",
+          "How to Build Real Friendships at Any Stage of Life": 1,
+          "How to Build Real Friendships at Any Stage of Life_price": "399.00"
+        },
+        "17": {
+          "updates": {
+            "updatedRows": 1,
+            "updatedCells": 10,
+            "updatedRange": "'Purchase Data'!A5:K5",
+            "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+            "updatedColumns": 10
+          },
+          "rowNumber": 5,
+          "sheetName": "Purchase Data",
+          "tableRange": "'Purchase Data'!A1:O4",
+          "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+        },
+        "66": {
+          "updates": {
+            "updatedRows": 1,
+            "updatedCells": 11,
+            "updatedRange": "'Order Sheet'!A5:K5",
+            "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+            "updatedColumns": 11
+          },
+          "rowNumber": 5,
+          "sheetName": "Order Sheet",
+          "tableRange": "'Order Sheet'!A1:L4",
+          "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+        }
+      }
+    },
+    "scenario": {
+      "dlq": true,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 2,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

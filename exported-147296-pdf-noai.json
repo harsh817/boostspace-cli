@@ -1,0 +1,131 @@
+{
+  "flow": [
+    {
+      "id": 1,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "parameters": {
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 2,
+      "mapper": {
+        "input": [
+          {
+            "name": "client_name",
+            "value": "{{1.client_name}}"
+          },
+          {
+            "name": "client_email",
+            "value": "{{1.client_email}}"
+          },
+          {
+            "name": "provider_name",
+            "value": "{{1.provider_name}}"
+          },
+          {
+            "name": "service_name",
+            "value": "{{1.service_name}}"
+          },
+          {
+            "name": "start_date",
+            "value": "{{1.start_date}}"
+          },
+          {
+            "name": "end_date",
+            "value": "{{1.end_date}}"
+          },
+          {
+            "name": "fee_amount",
+            "value": "{{1.fee_amount}}"
+          },
+          {
+            "name": "currency",
+            "value": "{{1.currency}}"
+          },
+          {
+            "name": "payment_terms",
+            "value": "{{1.payment_terms}}"
+          },
+          {
+            "name": "jurisdiction",
+            "value": "{{1.jurisdiction}}"
+          },
+          {
+            "name": "special_terms",
+            "value": "{{1.special_terms}}"
+          }
+        ],
+        "language": "javascript",
+        "inputFormat": "editor",
+        "dependencies": [],
+        "codeEditorJavascript": "const v = input || {};\n\nfunction pick(key) {\n  const raw = v[key];\n  if (raw === undefined || raw === null || String(raw).trim() === \"\") {\n    return `[MISSING: ${key}]`;\n  }\n  return String(raw).trim();\n}\n\nfunction escapePdfText(value) {\n  return String(value || \"\")\n    .replace(/\\/g, \"\\\\\")\n    .replace(/\\(/g, \"\\(\")\n    .replace(/\\)/g, \"\\)\")\n    .replace(/\r/g, \" \")\n    .replace(/\n/g, \" \");\n}\n\nfunction makePdfBase64(text) {\n  const lines = String(text || \"\").split(/\r?\n/).slice(0, 220);\n  const stream = [\"BT\", \"/F1 11 Tf\", \"50 790 Td\"];\n  for (let i = 0; i < lines.length; i += 1) {\n    const line = escapePdfText(lines[i]).slice(0, 120);\n    stream.push(`(${line}) Tj`);\n    if (i < lines.length - 1) {\n      stream.push(\"0 -14 Td\");\n    }\n  }\n  stream.push(\"ET\");\n  const content = stream.join(\"\\n\");\n\n  const objects = [\n    null,\n    \"1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n\",\n    \"2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n\",\n    \"3 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\\nendobj\\n\",\n    \"4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\\nendobj\\n\",\n    `5 0 obj\\n<< /Length ${Buffer.byteLength(content, \"utf8\")} >>\\nstream\\n${content}\\nendstream\\nendobj\\n`\n  ];\n\n  let pdf = \"%PDF-1.4\\n\";\n  const offsets = [0];\n  for (let i = 1; i < objects.length; i += 1) {\n    offsets[i] = Buffer.byteLength(pdf, \"utf8\");\n    pdf += objects[i];\n  }\n\n  const xrefOffset = Buffer.byteLength(pdf, \"utf8\");\n  pdf += \"xref\\n0 6\\n0000000000 65535 f \\n\";\n  for (let i = 1; i < offsets.length; i += 1) {\n    pdf += `${String(offsets[i]).padStart(10, \"0\")} 00000 n \\n`;\n  }\n  pdf += `trailer\\n<< /Size 6 /Root 1 0 R >>\\nstartxref\\n${xrefOffset}\\n%%EOF`;\n  return Buffer.from(pdf, \"utf8\").toString(\"base64\");\n}\n\nconst agreement = [\n  \"SERVICE AGREEMENT\",\n  \"\",\n  `This Service Agreement (\"Agreement\") is made between ${pick(\"provider_name\")} (\"Provider\") and ${pick(\"client_name\")} (\"Client\").`,\n  \"\",\n  \"1) Services\",\n  `Provider will deliver the following services: ${pick(\"service_name\")}.`,\n  \"\",\n  \"2) Term\",\n  `Start Date: ${pick(\"start_date\")}`,\n  `End Date: ${pick(\"end_date\")}`,\n  \"\",\n  \"3) Fees and Payment\",\n  `Client agrees to pay ${pick(\"currency\")} ${pick(\"fee_amount\")}.`,\n  `Payment Terms: ${pick(\"payment_terms\")}.`,\n  \"\",\n  \"4) Confidentiality\",\n  \"Both parties agree to keep confidential information private and use it only for this engagement.\",\n  \"\",\n  \"5) Governing Law\",\n  `This Agreement is governed by the laws of ${pick(\"jurisdiction\")}.`,\n  \"\",\n  \"6) Special Terms\",\n  `${pick(\"special_terms\")}`,\n  \"\",\n  \"7) Signatures\",\n  `Provider: ${pick(\"provider_name\")}`,\n  `Client: ${pick(\"client_name\")}`,\n  `Client Email: ${pick(\"client_email\")}`\n].join(\"\\n\");\n\nconst agreementTitle = `Agreement - ${pick(\"client_name\")}`;\nconst fileName = `${agreementTitle.replace(/[^a-zA-Z0-9_-]+/g, \"_\")}.pdf`;\nconst agreementPdfBase64 = makePdfBase64(agreement);\n\nreturn {\n  agreement_text: agreement,\n  agreement_title: agreementTitle,\n  agreement_file_name: fileName,\n  agreement_pdf_base64: agreementPdfBase64,\n  generated_at: new Date().toISOString()\n};\n"
+      },
+      "module": "code:ExecuteCode",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      },
+      "parameters": {}
+    },
+    {
+      "id": 3,
+      "mapper": {
+        "body": "{\"ok\":true,\"agreement_title\":\"{{2.result.agreement_title}}\",\"agreement_text\":\"{{2.result.agreement_text}}\",\"agreement_file_name\":\"{{2.result.agreement_file_name}}\",\"agreement_pdf_base64\":\"{{2.result.agreement_pdf_base64}}\",\"generated_at\":\"{{2.result.generated_at}}\"}",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      "module": "gateway:WebhookRespond",
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0,
+          "messages": [
+            {
+              "message": "A trigger must be the first module in a scenario.",
+              "category": "link",
+              "severity": "error"
+            },
+            {
+              "message": "Value must not be empty.",
+              "category": "setup",
+              "severity": "error"
+            }
+          ]
+        }
+      },
+      "parameters": {
+        "status": 200
+      }
+    }
+  ],
+  "name": "Agreement Generator - PDF (No AI)",
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "slots": null,
+      "maxErrors": 3,
+      "roundtrips": 1
+    }
+  }
+}

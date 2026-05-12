@@ -1,0 +1,2140 @@
+{
+  "flow": [
+    {
+      "id": 3,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {
+            "hook": {
+              "data": {
+                "editable": "true"
+              },
+              "label": "My gateway-webhook webhook"
+            }
+          }
+        },
+        "designer": {
+          "x": 0,
+          "y": 1650
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "hook": 56029,
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 39,
+      "mapper": null,
+      "module": "builtin:BasicRouter",
+      "routes": [
+        {
+          "flow": [
+            {
+              "id": 5,
+              "filter": {
+                "name": "Delivery Front End",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.price}}",
+                      "o": "exist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "name": "{{3.first_name}}",
+                "email": "{{3.email}}",
+                "phone": "{{3.phone}}",
+                "list_id": "uauKEa",
+                "contact_type": "active"
+              },
+              "module": "mailercloud:AddContact",
+              "onerror": [
+                {
+                  "id": 57,
+                  "module": "builtin:Ignore",
+                  "version": 1,
+                  "metadata": {
+                    "designer": {
+                      "x": 900,
+                      "y": 0
+                    }
+                  }
+                }
+              ],
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "list_id",
+                    "type": "select",
+                    "label": "List",
+                    "required": true
+                  },
+                  {
+                    "name": "contact_type",
+                    "type": "select",
+                    "label": "Contact Type",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "active",
+                        "bounce",
+                        "abuse",
+                        "unsubscribe",
+                        "suppressed",
+                        "spam complaints"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "email",
+                    "type": "email",
+                    "label": "Email address",
+                    "required": true
+                  },
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": "First name"
+                  },
+                  {
+                    "name": "middle_name",
+                    "type": "text",
+                    "label": "Middle Name"
+                  },
+                  {
+                    "name": "last_name",
+                    "type": "text",
+                    "label": "Last Name"
+                  },
+                  {
+                    "name": "phone",
+                    "type": "text",
+                    "label": "Phone"
+                  },
+                  {
+                    "name": "country",
+                    "type": "text",
+                    "label": "Country"
+                  },
+                  {
+                    "name": "city",
+                    "type": "text",
+                    "label": "City"
+                  },
+                  {
+                    "name": "state",
+                    "type": "text",
+                    "label": "State"
+                  },
+                  {
+                    "name": "zip",
+                    "type": "text",
+                    "label": "ZIP"
+                  },
+                  {
+                    "name": "job_title",
+                    "type": "text",
+                    "label": "Job Title"
+                  },
+                  {
+                    "name": "industry",
+                    "type": "text",
+                    "label": "Industry"
+                  },
+                  {
+                    "name": "department",
+                    "type": "text",
+                    "label": "Department"
+                  },
+                  {
+                    "name": "organization",
+                    "type": "text",
+                    "label": "Organization"
+                  },
+                  {
+                    "name": "salary",
+                    "type": "text",
+                    "label": "Salary"
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "list_id": {
+                      "mode": "chose",
+                      "label": "BS - FE - Success"
+                    },
+                    "contact_type": {
+                      "mode": "chose",
+                      "label": "Active"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "mailercloud"
+                      },
+                      "label": "My Mailercloud connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 0
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:mailercloud",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 150524
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 22,
+              "filter": {
+                "name": "Boost Space",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.price}}",
+                      "o": "notexist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "limit": "1",
+                "order": "1",
+                "filter": "1",
+                "offset": "1"
+              },
+              "module": "boostspace-bs-note-2:Note3edc5f44",
+              "onerror": [
+                {
+                  "id": 67,
+                  "module": "builtin:Ignore",
+                  "version": 1,
+                  "metadata": {
+                    "designer": {
+                      "x": 900,
+                      "y": 300
+                    }
+                  }
+                }
+              ],
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "filter",
+                    "type": "text",
+                    "label": "Filter"
+                  },
+                  {
+                    "name": "offset",
+                    "type": "text",
+                    "label": "Offset"
+                  },
+                  {
+                    "name": "limit",
+                    "type": "text",
+                    "label": "Limit"
+                  },
+                  {
+                    "name": "order",
+                    "type": "text",
+                    "label": "Order"
+                  }
+                ],
+                "restore": {
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "boostspace-bs-note-2"
+                      },
+                      "label": "Google Sheets (12)"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 300
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:boostspace-bs-note-2",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 125722
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 17,
+              "filter": {
+                "name": "",
+                "conditions": [
+                  [
+                    {
+                      "a": "{{3.price}}",
+                      "o": "exist"
+                    }
+                  ]
+                ]
+              },
+              "mapper": {
+                "from": "drive",
+                "mode": "select",
+                "sheetId": "Purchase Data",
+                "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+                "includesHeaders": true,
+                "insertDataOption": "INSERT_ROWS",
+                "useColumnHeaders": false,
+                "valueInputOption": "USER_ENTERED",
+                "insertUnformatted": false,
+                "values": {
+                  "0": "{{3.datetime}}",
+                  "1": "{{3.first_name}}",
+                  "2": "{{3.email}}",
+                  "3": "{{3.phone}}",
+                  "4": "{{ifempty(3.sales_page_url; 3.sales_page_path)}}",
+                  "5": "{{ifempty(3.total_price; 3.price)}}",
+                  "6": "{{3.utm_source}}",
+                  "7": "{{3.utm_campaign}}",
+                  "8": "{{3.utm_medium}}",
+                  "9": "{{3.utm_content}}",
+                  "10": "{{3.utm_term}}",
+                  "11": "{{3.datetime}}",
+                  "12": "{{3.sales_page_path}}"
+                }
+              },
+              "module": "google-sheets:addRow",
+              "version": 2,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "from": {
+                      "label": "My Drive"
+                    },
+                    "mode": {
+                      "label": "Search by path"
+                    },
+                    "sheetId": {
+                      "label": "Purchase Data"
+                    },
+                    "spreadsheetId": {
+                      "path": [
+                        "BSL Guide"
+                      ]
+                    },
+                    "includesHeaders": {
+                      "label": "Yes"
+                    },
+                    "insertDataOption": {
+                      "mode": "chose",
+                      "label": "Insert rows"
+                    },
+                    "useColumnHeaders": {
+                      "label": "No",
+                      "nested": []
+                    },
+                    "valueInputOption": {
+                      "mode": "chose",
+                      "label": "User entered"
+                    },
+                    "insertUnformatted": {
+                      "mode": "chose"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "google"
+                      },
+                      "label": "My Google connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 1130,
+                  "y": 570,
+                  "name": "Purchase Sheet"
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:google",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 166837
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 47,
+              "mapper": {
+                "duration": "120"
+              },
+              "module": "util:FunctionSleep",
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "duration",
+                    "type": "uinteger",
+                    "label": "Delay",
+                    "required": true,
+                    "validate": {
+                      "max": 300,
+                      "min": 1
+                    }
+                  }
+                ],
+                "restore": {},
+                "designer": {
+                  "x": 600,
+                  "y": 1800
+                }
+              },
+              "parameters": {}
+            },
+            {
+              "id": 6,
+              "mapper": null,
+              "module": "builtin:BasicRouter",
+              "routes": [
+                {
+                  "flow": [
+                    {
+                      "id": 41,
+                      "filter": {
+                        "name": "Call Cassanova",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.`Convo Kickstarter + Call Casanova`}}",
+                              "o": "exist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZu": "Call Cassanova",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 900
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 42,
+                      "filter": {
+                        "name": "Meetup Architect",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.first_name}}",
+                              "o": "notexist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZE": "Meetup Architect",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 1200
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 43,
+                      "filter": {
+                        "name": "Convo Kickstarter",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.`Convo Kickstarter + Call Casanova`}}",
+                              "o": "exist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZf": "Convo Kickstarter",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 1500
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 44,
+                      "filter": {
+                        "name": "Dirty Talk 101",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.`Dirty Talk 101`}}",
+                              "o": "exist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZw": "Dirty Talk 101",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 1800
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 45,
+                      "filter": {
+                        "name": "24 Hour Male Model",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.first_name}}",
+                              "o": "notexist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZH": "Male Model",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 2100
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 46,
+                      "filter": {
+                        "name": "Women Psychology Mastery",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.`Women Psychology Mastery`}}",
+                              "o": "exist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZy": "Women Psychology Mastery",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 2400
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                },
+                {
+                  "flow": [
+                    {
+                      "id": 56,
+                      "filter": {
+                        "name": "Coaching Call",
+                        "conditions": [
+                          [
+                            {
+                              "a": "{{3.`Special Coaching Call`}}",
+                              "o": "exist"
+                            }
+                          ]
+                        ]
+                      },
+                      "mapper": {
+                        "wHZy": "Women Psychology Mastery",
+                        "email": "{{3.email}}",
+                        "contact_type": "active"
+                      },
+                      "module": "mailercloud:UpdateContact",
+                      "version": 1,
+                      "metadata": {
+                        "expect": [
+                          {
+                            "name": "contact_type",
+                            "type": "select",
+                            "label": "Contact Type",
+                            "required": true,
+                            "validate": {
+                              "enum": [
+                                "active",
+                                "bounce",
+                                "abuse",
+                                "unsubscribe",
+                                "suppressed",
+                                "spam complaints"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "email",
+                            "type": "email",
+                            "label": "Email address",
+                            "required": true
+                          },
+                          {
+                            "name": "name",
+                            "type": "text",
+                            "label": "First name"
+                          },
+                          {
+                            "name": "wHZy",
+                            "type": "text",
+                            "label": "Women Psychology Mastery"
+                          },
+                          {
+                            "name": "wHZH",
+                            "type": "text",
+                            "label": "Male Model"
+                          },
+                          {
+                            "name": "wHZw",
+                            "type": "text",
+                            "label": "Dirty Talk 101"
+                          },
+                          {
+                            "name": "wHZf",
+                            "type": "text",
+                            "label": "Convo Kickstarter"
+                          },
+                          {
+                            "name": "wHZE",
+                            "type": "text",
+                            "label": "Meetup Architect"
+                          },
+                          {
+                            "name": "wHZu",
+                            "type": "text",
+                            "label": "Call Cassanova"
+                          }
+                        ],
+                        "restore": {
+                          "expect": {
+                            "contact_type": {
+                              "mode": "chose",
+                              "label": "Active"
+                            }
+                          },
+                          "parameters": {
+                            "__IMTCONN__": {
+                              "data": {
+                                "scoped": "true",
+                                "connection": "mailercloud"
+                              },
+                              "label": "My Mailercloud connection"
+                            }
+                          }
+                        },
+                        "designer": {
+                          "x": 1200,
+                          "y": 2700
+                        },
+                        "parameters": [
+                          {
+                            "name": "__IMTCONN__",
+                            "type": "account:mailercloud",
+                            "label": "Connection",
+                            "required": true
+                          }
+                        ]
+                      },
+                      "parameters": {
+                        "__IMTCONN__": 150524
+                      }
+                    }
+                  ]
+                }
+              ],
+              "version": 1,
+              "metadata": {
+                "designer": {
+                  "x": 900,
+                  "y": 1800
+                }
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 61,
+              "mapper": {
+                "scope": "roundtrip",
+                "variables": [
+                  {
+                    "name": "phone",
+                    "value": "{{3.phone}}"
+                  },
+                  {
+                    "name": "name",
+                    "value": "{{3.first_name}}"
+                  }
+                ]
+              },
+              "module": "util:SetVariables",
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "variables",
+                    "spec": [
+                      {
+                        "name": "name",
+                        "type": "text",
+                        "label": "Variable name",
+                        "required": true
+                      },
+                      {
+                        "name": "value",
+                        "type": "any",
+                        "label": "Variable value"
+                      }
+                    ],
+                    "type": "array",
+                    "label": "Variables"
+                  },
+                  {
+                    "name": "scope",
+                    "type": "select",
+                    "label": "Variable lifetime",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "roundtrip",
+                        "execution"
+                      ]
+                    }
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "scope": {
+                      "label": "One cycle"
+                    },
+                    "variables": {
+                      "items": [
+                        null,
+                        null
+                      ]
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 600,
+                  "y": 3000
+                },
+                "interface": [
+                  {
+                    "name": "phone",
+                    "type": "any",
+                    "label": "phone"
+                  },
+                  {
+                    "name": "name",
+                    "type": "any",
+                    "label": "name"
+                  }
+                ]
+              },
+              "parameters": {}
+            },
+            {
+              "id": 64,
+              "mapper": {
+                "name": "{{61.name}}",
+                "phone": "{{61.phone}}"
+              },
+              "module": "json:CreateJSON",
+              "version": 1,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "name",
+                    "type": "text",
+                    "label": null
+                  },
+                  {
+                    "name": "phone",
+                    "type": "number",
+                    "label": null
+                  }
+                ],
+                "restore": {
+                  "parameters": {
+                    "type": {
+                      "label": "BSL-Whatsapp-n8n"
+                    },
+                    "space": {
+                      "label": "Empty"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 900,
+                  "y": 3000
+                },
+                "parameters": [
+                  {
+                    "name": "type",
+                    "type": "udt",
+                    "label": "Data structure",
+                    "required": true
+                  },
+                  {
+                    "name": "space",
+                    "type": "select",
+                    "label": "Indentation",
+                    "validate": {
+                      "enum": [
+                        "tab",
+                        "2",
+                        "4"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "parameters": {
+                "type": 53272,
+                "space": ""
+              }
+            },
+            {
+              "id": 69,
+              "mapper": {
+                "ca": "",
+                "qs": [
+                  {
+                    "name": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": "https://wapi.flaxxa.com/api/v1/sendtemplatemessage",
+                "data": "{\r\n  \"token\": \"373359269687f6d7298f1b\",\r\n  \"phone\": \"{{3.phone}}\",\r\n  \"template_name\": \"order_received\",\r\n  \"template_language\": \"en_US\",\r\n  \"components\": [\r\n    {\r\n      \"type\": \"body\",\r\n      \"parameters\": [\r\n        {\r\n          \"type\": \"text\",\r\n          \"text\": \"{{3.first_name}}\"\r\n        }\r\n      ]\r\n    }\r\n  ]\r\n}",
+                "gzip": true,
+                "method": "post",
+                "headers": [],
+                "timeout": "",
+                "useMtls": false,
+                "authPass": "",
+                "authUser": "",
+                "bodyType": "raw",
+                "contentType": "application/json",
+                "serializeUrl": false,
+                "shareCookies": false,
+                "parseResponse": false,
+                "followRedirect": true,
+                "useQuerystring": false,
+                "followAllRedirects": false,
+                "rejectUnauthorized": true
+              },
+              "module": "http:ActionSendData",
+              "onerror": [
+                {
+                  "id": 70,
+                  "module": "builtin:Ignore",
+                  "version": 1,
+                  "metadata": {
+                    "designer": {
+                      "x": 1850,
+                      "y": 3139
+                    }
+                  }
+                }
+              ],
+              "version": 3,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "url",
+                    "type": "url",
+                    "label": "URL",
+                    "required": true
+                  },
+                  {
+                    "name": "serializeUrl",
+                    "type": "boolean",
+                    "label": "Serialize URL",
+                    "required": true
+                  },
+                  {
+                    "name": "method",
+                    "type": "select",
+                    "label": "Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "get",
+                        "head",
+                        "post",
+                        "put",
+                        "patch",
+                        "delete",
+                        "options"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "bodyType",
+                    "type": "select",
+                    "label": "Body type",
+                    "validate": {
+                      "enum": [
+                        "raw",
+                        "x_www_form_urlencoded",
+                        "multipart_form_data"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "parseResponse",
+                    "type": "boolean",
+                    "label": "Parse response",
+                    "required": true
+                  },
+                  {
+                    "name": "gzip",
+                    "type": "boolean",
+                    "label": "Request compressed content",
+                    "required": true
+                  },
+                  {
+                    "name": "contentType",
+                    "type": "select",
+                    "label": "Content type"
+                  },
+                  {
+                    "name": "data",
+                    "type": "buffer",
+                    "label": "Request content"
+                  },
+                  {
+                    "name": "followRedirect",
+                    "type": "boolean",
+                    "label": "Follow redirect",
+                    "required": true
+                  },
+                  {
+                    "name": "rejectUnauthorized",
+                    "type": "boolean",
+                    "label": "Reject connections that are using unverified (self-signed) certificates",
+                    "required": true
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "qs": {
+                      "mode": "chose",
+                      "items": [
+                        null
+                      ]
+                    },
+                    "method": {
+                      "mode": "chose",
+                      "label": "POST"
+                    },
+                    "headers": {
+                      "mode": "chose"
+                    },
+                    "bodyType": {
+                      "label": "Raw"
+                    },
+                    "contentType": {
+                      "label": "JSON (application/json)"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": 1550,
+                  "y": 2989
+                },
+                "parameters": [
+                  {
+                    "name": "handleErrors",
+                    "type": "boolean",
+                    "label": "Evaluate all states as errors (except for 2xx and 3xx )",
+                    "required": true
+                  },
+                  {
+                    "name": "useNewZLibDeCompress",
+                    "type": "hidden"
+                  }
+                ]
+              },
+              "parameters": {
+                "handleErrors": true,
+                "useNewZLibDeCompress": true
+              }
+            }
+          ]
+        },
+        {
+          "flow": [
+            {
+              "id": 66,
+              "mapper": {
+                "from": "drive",
+                "mode": "select",
+                "sheetId": "Order Sheet",
+                "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+                "includesHeaders": true,
+                "insertDataOption": "INSERT_ROWS",
+                "useColumnHeaders": false,
+                "valueInputOption": "USER_ENTERED",
+                "insertUnformatted": false,
+                "values": {
+                  "0": "{{3.datetime}}",
+                  "1": "{{3.first_name}}",
+                  "2": "{{3.email}}",
+                  "3": "{{3.phone}}",
+                  "4": "{{3.product_title}}",
+                  "5": "{{3.`Dirty Talk and Get Nudes_price`}}",
+                  "6": "{{3.`How to Build Real Friendships at Any Stage of Life_price`}}",
+                  "7": "{{3.`The Psychology Bundle_price`}}",
+                  "8": "{{3.`10x Gifting Sense_price`}}",
+                  "9": "{{ifempty(3.total_price; 3.price)}}",
+                  "10": "{{3.order_id}}"
+                }
+              },
+              "module": "google-sheets:addRow",
+              "version": 2,
+              "metadata": {
+                "expect": [
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "mode",
+                    "type": "select",
+                    "label": "Search Method",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "select",
+                        "fromAll",
+                        "map"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertUnformatted",
+                    "type": "boolean",
+                    "label": "Unformatted",
+                    "required": true
+                  },
+                  {
+                    "name": "valueInputOption",
+                    "type": "select",
+                    "label": "Value input option",
+                    "validate": {
+                      "enum": [
+                        "USER_ENTERED",
+                        "RAW"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "insertDataOption",
+                    "type": "select",
+                    "label": "Insert data option",
+                    "validate": {
+                      "enum": [
+                        "INSERT_ROWS",
+                        "OVERWRITE"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "from",
+                    "type": "select",
+                    "label": "Drive",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        "drive",
+                        "share",
+                        "team"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "spreadsheetId",
+                    "type": "file",
+                    "label": "Spreadsheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "sheetId",
+                    "type": "select",
+                    "label": "Sheet Name",
+                    "required": true
+                  },
+                  {
+                    "name": "includesHeaders",
+                    "type": "select",
+                    "label": "Table contains headers",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  },
+                  {
+                    "name": "useColumnHeaders",
+                    "type": "select",
+                    "label": "Use column headers as IDs of the columns",
+                    "required": true,
+                    "validate": {
+                      "enum": [
+                        true,
+                        false
+                      ]
+                    }
+                  }
+                ],
+                "restore": {
+                  "expect": {
+                    "from": {
+                      "label": "My Drive"
+                    },
+                    "mode": {
+                      "label": "Search by path"
+                    },
+                    "sheetId": {
+                      "label": "Order Sheet"
+                    },
+                    "spreadsheetId": {
+                      "path": [
+                        "BSL Guide"
+                      ]
+                    },
+                    "includesHeaders": {
+                      "label": "Yes"
+                    },
+                    "insertDataOption": {
+                      "mode": "chose",
+                      "label": "Insert rows"
+                    },
+                    "useColumnHeaders": {
+                      "label": "No",
+                      "nested": []
+                    },
+                    "valueInputOption": {
+                      "mode": "chose",
+                      "label": "User entered"
+                    },
+                    "insertUnformatted": {
+                      "mode": "chose"
+                    }
+                  },
+                  "parameters": {
+                    "__IMTCONN__": {
+                      "data": {
+                        "scoped": "true",
+                        "connection": "google"
+                      },
+                      "label": "My Google connection"
+                    }
+                  }
+                },
+                "designer": {
+                  "x": -17,
+                  "y": 3342,
+                  "name": "Order Sheet"
+                },
+                "parameters": [
+                  {
+                    "name": "__IMTCONN__",
+                    "type": "account:google",
+                    "label": "Connection",
+                    "required": true
+                  }
+                ]
+              },
+              "parameters": {
+                "__IMTCONN__": 166838
+              }
+            }
+          ]
+        }
+      ],
+      "version": 1,
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 1650
+        }
+      }
+    }
+  ],
+  "name": "Harsh - Bond Style | Purchase",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": [],
+      "samples": {
+        "3": {
+          "email": "akmishra3121@gmail.com",
+          "phone": "+919355494359",
+          "price": "497",
+          "utm_id": "",
+          "currency": "INR",
+          "datetime": "8/4/2026, 9:38:09 pm",
+          "order_id": "ORD-906180EA215C444789DA",
+          "utm_flow": "",
+          "utm_term": "",
+          "first_name": "Abhishek",
+          "product_id": "bond-style-main",
+          "utm_medium": "",
+          "utm_source": "",
+          "total_price": "2291",
+          "utm_content": "",
+          "items_source": "status_endpoint",
+          "pricing_type": "2",
+          "utm_campaign": "",
+          "product_title": "Bond Style Communication Guide",
+          "sales_page_id": "",
+          "sales_page_url": "",
+          "transaction_id": "OM2604082137471531935234V",
+          "sales_page_path": "/offer",
+          "total_bump_price": 1794,
+          "10x Gifting Sense": 1,
+          "The Psychology Bundle": 1,
+          "10x Gifting Sense_price": "399.00",
+          "Dirty Talk and Get Nudes": 1,
+          "The Psychology Bundle_price": "497.00",
+          "Dirty Talk and Get Nudes_price": "499.00",
+          "How to Build Real Friendships at Any Stage of Life": 1,
+          "How to Build Real Friendships at Any Stage of Life_price": "399.00"
+        },
+        "17": {
+          "updates": {
+            "updatedRange": "'Purchase Data'!A2",
+            "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+          },
+          "rowNumber": 2,
+          "sheetName": "Purchase Data",
+          "tableRange": "'Purchase Data'!A1:O1",
+          "spreadsheetId": "1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os"
+        }
+      }
+    },
+    "scenario": {
+      "dlq": true,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 2,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

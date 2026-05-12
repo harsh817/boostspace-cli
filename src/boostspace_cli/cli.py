@@ -202,6 +202,7 @@ from . import catalog_cli  # noqa: E402
 from . import formulas_cli  # noqa: E402
 from . import mcp_cli  # noqa: E402
 from . import timesheets_cli  # noqa: E402
+from . import dev  # noqa: E402
 
 main.add_command(scenarios.scenarios)
 main.add_command(executions.executions)
@@ -214,6 +215,7 @@ main.add_command(catalog_cli.catalog_cli)
 main.add_command(formulas_cli.formulas_cli)
 main.add_command(mcp_cli.mcp_cli)
 main.add_command(timesheets_cli.timesheets)
+main.add_command(dev.dev)
 
 
 if __name__ == "__main__":

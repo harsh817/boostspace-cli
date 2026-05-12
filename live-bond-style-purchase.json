@@ -1,0 +1,99 @@
+{
+  "flow": [
+    {
+      "id": 3,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {
+            "hook": {
+              "data": {
+                "editable": "true"
+              },
+              "label": "My gateway-webhook webhook"
+            }
+          }
+        },
+        "designer": {
+          "x": -1221,
+          "y": 34
+        },
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "hook": 56029,
+        "maxResults": 1
+      }
+    }
+  ],
+  "name": "Harsh - Bond Style | Purchase",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": [],
+      "samples": {
+        "3": {
+          "email": "akmishra3121@gmail.com",
+          "phone": "+919355494359",
+          "price": "497",
+          "utm_id": "",
+          "currency": "INR",
+          "datetime": "7/4/2026, 8:36:22 pm",
+          "order_id": "ORD-C3948742CBA7444B967C",
+          "utm_flow": "",
+          "utm_term": "",
+          "first_name": "Abhishek",
+          "product_id": "bond-style-main",
+          "utm_medium": "",
+          "utm_source": "",
+          "total_price": "2291",
+          "utm_content": "",
+          "items_source": "status_endpoint",
+          "pricing_type": "2",
+          "utm_campaign": "",
+          "product_title": "Bond Style Communication Guide",
+          "sales_page_id": "",
+          "sales_page_url": "",
+          "transaction_id": "OM2604072035593224221730V",
+          "sales_page_path": "/offer",
+          "total_bump_price": 1794,
+          "10x Gifting Sense": 1,
+          "The Psychology Bundle": 1,
+          "10x Gifting Sense_price": "399.00",
+          "Dirty Talk and Get Nudes": 1,
+          "The Psychology Bundle_price": "497.00",
+          "Dirty Talk and Get Nudes_price": "499.00",
+          "How to Build Real Friendships at Any Stage of Life": 1,
+          "How to Build Real Friendships at Any Stage of Life_price": "399.00"
+        }
+      }
+    },
+    "scenario": {
+      "dlq": false,
+      "slots": null,
+      "dataloss": false,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "roundtrips": 1,
+      "sequential": false,
+      "confidential": false,
+      "freshVariables": false,
+      "autoCommitTriggerLast": true
+    }
+  }
+}

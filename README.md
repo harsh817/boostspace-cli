@@ -149,6 +149,20 @@ boost scenarios list --folder-name "Lead Flows"
 
 # 8) Sync/list documented apps + platform features from Boost docs catalog
 boost scenario catalog --refresh
+
+# 9) Agreement generator starter flow (fields in, agreement text out)
+boost scenario validate --file examples/sample-workflow-agreement-generator.json --check-auth
+boost scenario deploy --file examples/sample-workflow-agreement-generator.json \
+  --sample-file examples/agreement-sample-payload.json --dry-run --json
+boost scenario deploy --file examples/sample-workflow-agreement-generator.json \
+  --sample-file examples/agreement-sample-payload.json --profile balanced
+
+# 9b) No-AI agreement generator (native webhook + code + webhook response)
+boost scenario validate --file examples/sample-workflow-agreement-generator-no-ai.json --check-auth
+boost scenario deploy --file examples/sample-workflow-agreement-generator-no-ai.json \
+  --sample-file examples/agreement-sample-payload.json --dry-run --json
+boost scenario deploy --file examples/sample-workflow-agreement-generator-no-ai.json \
+  --profile balanced --inactive --json
 ```
 
 JSON output examples:
@@ -230,3 +244,9 @@ boost executions status --name "HM | Daily Report Leads" --from-history 145029 -
 Sample workflow file:
 
 `examples/sample-workflow-lead-capture.json`
+
+Agreement generator starter files:
+
+- `examples/sample-workflow-agreement-generator.json`
+- `examples/sample-workflow-agreement-generator-no-ai.json`
+- `examples/agreement-sample-payload.json`

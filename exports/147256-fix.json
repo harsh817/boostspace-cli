@@ -1,0 +1,597 @@
+{
+  "flow": [
+    {
+      "id": 1,
+      "mapper": {},
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "metadata": {
+        "restore": {
+          "parameters": {
+            "hook": {
+              "data": {
+                "editable": "true"
+              },
+              "label": "BSL | PhonePe Failed Payments (Webhook)"
+            }
+          }
+        },
+        "designer": {
+          "x": -300,
+          "y": 0
+        },
+        "interface": [
+          {
+            "name": "__IMTHEADERS__",
+            "spec": [
+              {
+                "name": "name",
+                "type": "text",
+                "label": "Name"
+              },
+              {
+                "name": "value",
+                "type": "text",
+                "label": "Value"
+              }
+            ],
+            "type": "array",
+            "label": "Headers"
+          },
+          {
+            "name": "__IMTMETHOD__",
+            "type": "text",
+            "label": "Method"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hook",
+            "type": "hook:gateway-webhook",
+            "label": "Webhook",
+            "required": true
+          },
+          {
+            "name": "maxResults",
+            "type": "number",
+            "label": "Maximum number of results"
+          }
+        ]
+      },
+      "parameters": {
+        "hook": 56121,
+        "maxResults": 1
+      }
+    },
+    {
+      "id": 2,
+      "filter": {
+        "name": "PhonePe failed orders only",
+        "conditions": [
+          [
+            {
+              "a": "{{1.event}}",
+              "b": "checkout.order.failed",
+              "o": "text:equal"
+            },
+            {
+              "a": "{{1.payload.state}}",
+              "b": "FAILED",
+              "o": "text:equal"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "values": {
+          "0": "{{formatDate(now; \"YYYY-MM-DD HH:mm:ss\")}}",
+          "1": "{{1.payload.metaInfo.udf1}}",
+          "2": "{{1.payload.metaInfo.udf2}}",
+          "3": "{{1.payload.metaInfo.udf3}}",
+          "4": "{{1.payload.amount}}",
+          "5": "{{coalesce(1.payload.errorContext.description; 1.payload.errorCode; 1.payload.paymentDetails.errorCode; get(1.payload.paymentDetails; 1).errorCode)}}",
+          "6": "{{formatDate(now; \"DD/MM/YYYY\")}}",
+          "7": "{{1.payload.state}}",
+          "9": "{{formatDate(now; \"YYYY-MM-DD\")}}",
+          "8": ""
+        },
+        "sheetId": "Failed Payment",
+        "spreadsheetId": "/1gznzay3RWFFPq89EEbR9Fhwvj-m8ofLYbxg6Twfk1Os",
+        "includesHeaders": true,
+        "insertDataOption": "INSERT_ROWS",
+        "useColumnHeaders": false,
+        "valueInputOption": "USER_ENTERED",
+        "insertUnformatted": false
+      },
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "metadata": {
+        "expect": [
+          {
+            "name": "mode",
+            "type": "select",
+            "label": "Search Method",
+            "required": true,
+            "validate": {
+              "enum": [
+                "select",
+                "fromAll",
+                "map"
+              ]
+            }
+          },
+          {
+            "name": "insertUnformatted",
+            "type": "boolean",
+            "label": "Unformatted",
+            "required": true
+          },
+          {
+            "name": "valueInputOption",
+            "type": "select",
+            "label": "Value input option",
+            "validate": {
+              "enum": [
+                "USER_ENTERED",
+                "RAW"
+              ]
+            }
+          },
+          {
+            "name": "insertDataOption",
+            "type": "select",
+            "label": "Insert data option",
+            "validate": {
+              "enum": [
+                "INSERT_ROWS",
+                "OVERWRITE"
+              ]
+            }
+          },
+          {
+            "name": "from",
+            "type": "select",
+            "label": "Drive",
+            "required": true,
+            "validate": {
+              "enum": [
+                "drive",
+                "share",
+                "team"
+              ]
+            }
+          },
+          {
+            "name": "spreadsheetId",
+            "type": "file",
+            "label": "Spreadsheet Name",
+            "required": true
+          },
+          {
+            "name": "sheetId",
+            "type": "select",
+            "label": "Sheet Name",
+            "required": true
+          },
+          {
+            "name": "includesHeaders",
+            "type": "select",
+            "label": "Table contains headers",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "useColumnHeaders",
+            "type": "select",
+            "label": "Use column headers as IDs of the columns",
+            "required": true,
+            "validate": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          {
+            "name": "values",
+            "spec": [
+              {
+                "name": "0",
+                "type": "text",
+                "label": "Timestamp (A)"
+              },
+              {
+                "name": "1",
+                "type": "text",
+                "label": "Name (B)"
+              },
+              {
+                "name": "2",
+                "type": "text",
+                "label": "Email (C)"
+              },
+              {
+                "name": "3",
+                "type": "text",
+                "label": "Phone (D)"
+              },
+              {
+                "name": "4",
+                "type": "text",
+                "label": "Amount (E)"
+              },
+              {
+                "name": "5",
+                "type": "text",
+                "label": "Reason for Failure (F)"
+              },
+              {
+                "name": "6",
+                "type": "text",
+                "label": "Date (G)"
+              },
+              {
+                "name": "7",
+                "type": "text",
+                "label": "Purchase Status (H)"
+              },
+              {
+                "name": "8",
+                "type": "text",
+                "label": "Failed Payment Link (I)"
+              },
+              {
+                "name": "9",
+                "type": "text",
+                "label": "Date Clean (J)"
+              },
+              {
+                "name": "10",
+                "type": "text",
+                "label": "(K)"
+              },
+              {
+                "name": "11",
+                "type": "text",
+                "label": "Abandoned Cart Recovery Tracker (L)"
+              },
+              {
+                "name": "12",
+                "type": "text",
+                "label": "(M)"
+              },
+              {
+                "name": "13",
+                "type": "text",
+                "label": "(N)"
+              },
+              {
+                "name": "14",
+                "type": "text",
+                "label": "(O)"
+              },
+              {
+                "name": "15",
+                "type": "text",
+                "label": "(P)"
+              },
+              {
+                "name": "16",
+                "type": "text",
+                "label": "(Q)"
+              },
+              {
+                "name": "17",
+                "type": "text",
+                "label": "(R)"
+              },
+              {
+                "name": "18",
+                "type": "text",
+                "label": "(S)"
+              },
+              {
+                "name": "19",
+                "type": "text",
+                "label": "(T)"
+              },
+              {
+                "name": "20",
+                "type": "text",
+                "label": "(U)"
+              },
+              {
+                "name": "21",
+                "type": "text",
+                "label": "(V)"
+              },
+              {
+                "name": "22",
+                "type": "text",
+                "label": "(W)"
+              },
+              {
+                "name": "23",
+                "type": "text",
+                "label": "(X)"
+              },
+              {
+                "name": "24",
+                "type": "text",
+                "label": "(Y)"
+              },
+              {
+                "name": "25",
+                "type": "text",
+                "label": "(Z)"
+              }
+            ],
+            "type": "collection",
+            "label": "Values in columns",
+            "metadata": [
+              [
+                [
+                  "Timestamp",
+                  "Name",
+                  "Email",
+                  "Phone",
+                  "Amount",
+                  "Reason for Failure",
+                  "Date",
+                  "Purchase Status",
+                  "Failed Payment Link",
+                  "Date Clean",
+                  "",
+                  "Abandoned Cart Recovery Tracker"
+                ]
+              ]
+            ]
+          }
+        ],
+        "restore": {
+          "expect": {
+            "from": {
+              "label": "My Drive"
+            },
+            "mode": {
+              "label": "Search by path"
+            },
+            "sheetId": {
+              "label": "Failed Payment"
+            },
+            "spreadsheetId": {
+              "path": [
+                "BSL Guide"
+              ]
+            },
+            "includesHeaders": {
+              "label": "Yes"
+            },
+            "insertDataOption": {
+              "mode": "chose",
+              "label": "Insert rows"
+            },
+            "useColumnHeaders": {
+              "label": "No",
+              "nested": [
+                {
+                  "name": "values",
+                  "spec": [
+                    {
+                      "name": "0",
+                      "type": "text",
+                      "label": "Timestamp (A)"
+                    },
+                    {
+                      "name": "1",
+                      "type": "text",
+                      "label": "Name (B)"
+                    },
+                    {
+                      "name": "2",
+                      "type": "text",
+                      "label": "Email (C)"
+                    },
+                    {
+                      "name": "3",
+                      "type": "text",
+                      "label": "Phone (D)"
+                    },
+                    {
+                      "name": "4",
+                      "type": "text",
+                      "label": "Amount (E)"
+                    },
+                    {
+                      "name": "5",
+                      "type": "text",
+                      "label": "Reason for Failure (F)"
+                    },
+                    {
+                      "name": "6",
+                      "type": "text",
+                      "label": "Date (G)"
+                    },
+                    {
+                      "name": "7",
+                      "type": "text",
+                      "label": "Purchase Status (H)"
+                    },
+                    {
+                      "name": "8",
+                      "type": "text",
+                      "label": "Failed Payment Link (I)"
+                    },
+                    {
+                      "name": "9",
+                      "type": "text",
+                      "label": "Date Clean (J)"
+                    },
+                    {
+                      "name": "10",
+                      "type": "text",
+                      "label": "(K)"
+                    },
+                    {
+                      "name": "11",
+                      "type": "text",
+                      "label": "Abandoned Cart Recovery Tracker (L)"
+                    },
+                    {
+                      "name": "12",
+                      "type": "text",
+                      "label": "(M)"
+                    },
+                    {
+                      "name": "13",
+                      "type": "text",
+                      "label": "(N)"
+                    },
+                    {
+                      "name": "14",
+                      "type": "text",
+                      "label": "(O)"
+                    },
+                    {
+                      "name": "15",
+                      "type": "text",
+                      "label": "(P)"
+                    },
+                    {
+                      "name": "16",
+                      "type": "text",
+                      "label": "(Q)"
+                    },
+                    {
+                      "name": "17",
+                      "type": "text",
+                      "label": "(R)"
+                    },
+                    {
+                      "name": "18",
+                      "type": "text",
+                      "label": "(S)"
+                    },
+                    {
+                      "name": "19",
+                      "type": "text",
+                      "label": "(T)"
+                    },
+                    {
+                      "name": "20",
+                      "type": "text",
+                      "label": "(U)"
+                    },
+                    {
+                      "name": "21",
+                      "type": "text",
+                      "label": "(V)"
+                    },
+                    {
+                      "name": "22",
+                      "type": "text",
+                      "label": "(W)"
+                    },
+                    {
+                      "name": "23",
+                      "type": "text",
+                      "label": "(X)"
+                    },
+                    {
+                      "name": "24",
+                      "type": "text",
+                      "label": "(Y)"
+                    },
+                    {
+                      "name": "25",
+                      "type": "text",
+                      "label": "(Z)"
+                    }
+                  ],
+                  "type": "collection",
+                  "label": "Values in columns",
+                  "metadata": [
+                    [
+                      [
+                        "Timestamp",
+                        "Name",
+                        "Email",
+                        "Phone",
+                        "Amount",
+                        "Reason for Failure",
+                        "Date",
+                        "Purchase Status",
+                        "Failed Payment Link",
+                        "Date Clean",
+                        "",
+                        "Abandoned Cart Recovery Tracker"
+                      ]
+                    ]
+                  ]
+                }
+              ]
+            },
+            "valueInputOption": {
+              "mode": "chose",
+              "label": "User entered"
+            },
+            "insertUnformatted": {
+              "mode": "chose"
+            }
+          },
+          "parameters": {
+            "__IMTCONN__": {
+              "data": {
+                "scoped": "true",
+                "connection": "google"
+              },
+              "label": "My Google connection (hme4080@gmail.com)"
+            }
+          }
+        },
+        "designer": {
+          "x": 50,
+          "y": 0,
+          "messages": [
+            {
+              "message": "Module references non-existing module 'NaN'.",
+              "category": "reference",
+              "severity": "error"
+            }
+          ]
+        },
+        "parameters": [
+          {
+            "name": "__IMTCONN__",
+            "type": "account:google",
+            "label": "Connection",
+            "required": true
+          }
+        ]
+      },
+      "parameters": {
+        "__IMTCONN__": 147240
+      }
+    }
+  ],
+  "name": "BSL | PhonePe Failed Payments -> Sheets",
+  "metadata": {
+    "instant": true,
+    "version": 1,
+    "designer": {
+      "orphans": []
+    },
+    "scenario": {
+      "slots": null,
+      "maxErrors": 3,
+      "roundtrips": 1
+    }
+  }
+}

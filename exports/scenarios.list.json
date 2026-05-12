@@ -1,0 +1,732 @@
+﻿{
+  "ok": true,
+  "data": [
+    {
+      "id": 103072,
+      "name": "BSL - AI AD Optimization & Suggestion",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-14T04:30:00.000Z",
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 134676,
+      "name": "BSL - Insta Posting Daily (New)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 88267,
+      "name": "BSL - Integration Facebook Ads Campaign Management, Google Sheets",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-11T00:30:00.000Z",
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 130607,
+      "name": "BSL - Weekly Emails",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-12-25T11:44:00.000Z",
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 147242,
+      "name": "BSL | FB Ads Daily Summary -> Sheets (BSL Guide)",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-11T07:48:19.758Z",
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 147241,
+      "name": "BSL | FB Ads Daily Summary -> Sheets (BSL Guide)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 141504,
+      "name": "BSL | Lead Capture for Call Booking ",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 147213,
+      "name": "BSL | Purchase | Latest (Single Delivery)",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 141498,
+      "name": "BSL | Successful Booking | Cal",
+      "active": false,
+      "dlq": 1,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 129432,
+      "name": "BSL-Creative AD Spend Past 7 Days",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 127958,
+      "name": "BSL-Whatsapp-Purchase",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 128235,
+      "name": "BSL-Whatsapp-Purchase (copy)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 102513,
+      "name": "Clarity Report - BSL - HTTP - Sheet",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-09-02T18:28:00.000Z",
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146939,
+      "name": "Daily AI Instagram Post",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146941,
+      "name": "Daily AI Instagram Post",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146942,
+      "name": "Daily AI Instagram Post",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146947,
+      "name": "Daily AI Instagram Post",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 147002,
+      "name": "Daily LinkedIn Post - Claude",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146980,
+      "name": "Draft - AI Images to Instagram Daily (Native)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146983,
+      "name": "Draft - AI Images to Instagram Daily (Native)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2026-04-07T18:27:38.357Z",
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 147227,
+      "name": "Draft - HubSpot Lead -> AI Email (No Native Connections)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 147225,
+      "name": "Draft | HubSpot Form -> AI Email",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 147226,
+      "name": "Draft | HubSpot Form -> AI Email",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 123964,
+      "name": "Drive to Dropbox to Insta BSL Posting Daily",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 125720,
+      "name": "Facebook creatives reporting",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-09-05T00:30:00.000Z",
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146878,
+      "name": "Harsh - Bond Style | Purchase",
+      "active": false,
+      "dlq": 2,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 134767,
+      "name": "HM - Incomplete Lead",
+      "active": true,
+      "dlq": 3,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 141962,
+      "name": "HM - Testimonial",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 140114,
+      "name": "HM | Ad Account Level Reporting Data + Daily Tracker Update",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-10T18:25:00.000Z",
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 138926,
+      "name": "HM | Automated Invoice Creation",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 138249,
+      "name": "HM | Client Onboarding Booked | Cal",
+      "active": true,
+      "dlq": 1,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 143866,
+      "name": "HM | Client Onboarding Process Start",
+      "active": true,
+      "dlq": 2,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 134742,
+      "name": "HM | Contact Page Query",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 137604,
+      "name": "HM | Daily Report Leads",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-10T18:27:00.000Z",
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 144003,
+      "name": "HM | Forms | Balance Payment Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 144010,
+      "name": "HM | Forms | Refund Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 143933,
+      "name": "HM | Forms | Sales Form | Client Onboarding",
+      "active": true,
+      "dlq": 1,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 144004,
+      "name": "HM | Forms | Token Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 145436,
+      "name": "HM | FREE Funnel Lead Re-Capture",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 134769,
+      "name": "HM | Paid Lead Capture",
+      "active": true,
+      "dlq": 2,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 134853,
+      "name": "HM | Razorpay | Payment Failed",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-03-13T10:55:33.517Z",
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 134851,
+      "name": "HM | Razorpay | Payment Success",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-03-13T10:55:40.286Z",
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 145438,
+      "name": "HM | Successful Booking FREE BOOKING | Cal",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 143452,
+      "name": "HM | Successful Booking MQL | Cal",
+      "active": true,
+      "dlq": 1,
+      "nextRun": null,
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 134774,
+      "name": "HM | Successful Booking SQL | Cal",
+      "active": true,
+      "dlq": 1,
+      "nextRun": "2026-02-28T12:14:39.573Z",
+      "folderId": 9785,
+      "folderName": null
+    },
+    {
+      "id": 134644,
+      "name": "IGM Posting Daily - Dropbox - Instagram",
+      "active": true,
+      "dlq": 30,
+      "nextRun": "2026-04-11T05:29:00.000Z",
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 127701,
+      "name": "Integration Facebook Insights",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 123963,
+      "name": "Integration Gmail",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 83776,
+      "name": "Integration Google Sheets",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 85938,
+      "name": "Integration Google Sheets",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 92450,
+      "name": "Integration Google Sheets, Anthropic Claude, Slack, HeyGen",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 123877,
+      "name": "Integration Google Sheets, HTTP",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 108693,
+      "name": "Integration HTTP",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 128129,
+      "name": "Integration HTTP",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-09-24T15:19:21.707Z",
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 135517,
+      "name": "Integration HTTP",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 146649,
+      "name": "Integration HubSpot CRM",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 131691,
+      "name": "Integration Instagram for Business (Facebook login)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 128127,
+      "name": "Integration MCP Client",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-09-24T11:25:08.647Z",
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 130675,
+      "name": "Integration OpenAI (ChatGPT, Sora, DALL-E, Whisper)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 85369,
+      "name": "Integration RSS",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 127698,
+      "name": "Integration Slack, Webhooks",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 107489,
+      "name": "Integration Webhooks",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-05-20T12:49:37.773Z",
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 120803,
+      "name": "Integration WhatsApp Business Cloud",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 146917,
+      "name": "Lead Capture - Webhook Scaffold",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": null,
+      "folderName": null
+    },
+    {
+      "id": 127897,
+      "name": "Personal Finance Texting Tracker Logging Agent | Anirudh",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9325,
+      "folderName": null
+    },
+    {
+      "id": 127450,
+      "name": "Personal Finance Tracker Analysis Agent\u00a0| Anirudh",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-10-23T18:25:00.000Z",
+      "folderId": 9325,
+      "folderName": null
+    },
+    {
+      "id": 127432,
+      "name": "Personal Finance Tracker Logging Agent | Anirudh",
+      "active": true,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9325,
+      "folderName": null
+    },
+    {
+      "id": 128805,
+      "name": "RSI - Incomplete Lead Capture",
+      "active": false,
+      "dlq": 0,
+      "nextRun": "2025-12-16T08:41:46.912Z",
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 129039,
+      "name": "RSI | Client Installment Collection Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 129173,
+      "name": "RSI | Client Payment Default Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 129174,
+      "name": "RSI | Client Refund Request Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 128958,
+      "name": "RSI | Client Sales Onboarding Form",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 129064,
+      "name": "RSI | Client Token Sales Form ",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 128804,
+      "name": "RSI | Paid Lead Capture",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 128844,
+      "name": "RSI | Successful Booking | Cal",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9424,
+      "folderName": null
+    },
+    {
+      "id": 125626,
+      "name": "Sheet - AI - LinkedIn Post",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-10T09:31:52.624Z",
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 128699,
+      "name": "Sheet - AI - X Post via n8n (Webhook)",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 147125,
+      "name": "Single Delivery Email (Test)",
+      "active": false,
+      "dlq": 3,
+      "nextRun": null,
+      "folderId": 9429,
+      "folderName": null
+    },
+    {
+      "id": 128693,
+      "name": "Slack to Google Sheet - LinkedIn",
+      "active": false,
+      "dlq": 0,
+      "nextRun": null,
+      "folderId": 9430,
+      "folderName": null
+    },
+    {
+      "id": 128701,
+      "name": "Slack to Google Sheet - X",
+      "active": true,
+      "dlq": 0,
+      "nextRun": "2026-04-10T09:57:11.427Z",
+      "folderId": 9430,
+      "folderName": null
+    }
+  ],
+  "error": null,
+  "meta": {
+    "command": "scenarios list",
+    "limit": 200,
+    "folderId": null,
+    "folderName": null
+  }
+}
